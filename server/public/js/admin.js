@@ -166,6 +166,15 @@ function renderMuseums() {
             <div>
                 <h3>${escapeHtml(museum.name)}</h3>
 
+<a
+    href="/museum.html?slug=${encodeURIComponent(museum.slug)}"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="secondary-button"
+>
+    3D muzeyni ochish
+</a>
+
                 <p>
                     ${escapeHtml(museum.description || 'Tavsif kiritilmagan')}
                 </p>
