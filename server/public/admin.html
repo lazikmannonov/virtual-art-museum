@@ -1,0 +1,437 @@
+
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#111111">
+    <title>Admin Panel — Virtual Art Museum</title>
+
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body>
+
+<div class="admin-app">
+
+    <!-- LOGIN -->
+    <section class="login-screen" id="loginScreen">
+        <div class="login-card">
+
+            <div class="login-logo">VIRTUAL <span>MUSEUM</span></div>
+
+            <div class="login-line"></div>
+
+            <h1>Admin panel</h1>
+            <p class="login-description">
+                Muzey boshqaruv tizimiga xush kelibsiz.
+            </p>
+
+            <form id="loginForm">
+                <label>Administrator login</label>
+                <input
+                        type="text"
+                        id="adminUsername"
+                        placeholder="Login"
+                        autocomplete="username"
+                        required
+                >
+
+                <label>Parol</label>
+                <input
+                        type="password"
+                        id="adminPassword"
+                        placeholder="Parolni kiriting"
+                        autocomplete="current-password"
+                        required
+                >
+
+                <button type="submit" class="primary-button">
+                    Tizimga kirish
+                </button>
+
+                <p id="loginMessage" class="message"></p>
+            </form>
+
+            <div class="login-footer">
+                VIRTUAL ART MUSEUM
+            </div>
+
+        </div>
+    </section>
+
+
+    <!-- ADMIN DASHBOARD -->
+    <section class="dashboard" id="dashboard" hidden>
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+
+            <div class="sidebar-brand">
+                <div class="brand-icon">V</div>
+                <div>
+                    <strong>VIRTUAL MUSEUM</strong>
+                    <small>ADMINISTRATION</small>
+                </div>
+            </div>
+
+            <div class="sidebar-label">BOSHQARUV</div>
+
+            <nav class="sidebar-nav">
+
+                <button class="nav-item active" data-page="overview">
+                    <span>01</span>
+                    Bosh sahifa
+                </button>
+
+                <button class="nav-item" data-page="museums">
+                    <span>02</span>
+                    Muzeylar
+                </button>
+
+                <button class="nav-item" data-page="create">
+                    <span>03</span>
+                    Yangi muzey
+                </button>
+
+                <button class="nav-item" data-page="settings">
+                    <span>04</span>
+                    Sozlamalar
+                </button>
+
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="admin-profile">
+                    <div class="profile-avatar">A</div>
+                    <div>
+                        <strong>Administrator</strong>
+                        <small>Asosiy boshqaruvchi</small>
+                    </div>
+                </div>
+
+                <button class="logout-button" id="logoutButton">
+                    Tizimdan chiqish
+                </button>
+            </div>
+
+        </aside>
+
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <header class="topbar">
+                <div>
+                    <div class="topbar-label">VIRTUAL ART MUSEUM</div>
+                    <h1 id="pageTitle">Bosh sahifa</h1>
+                </div>
+
+                <div class="topbar-right">
+                    <span class="status-dot"></span>
+                    <span>Tizim faol</span>
+                </div>
+            </header>
+
+
+            <!-- OVERVIEW -->
+            <section class="page-section" id="page-overview">
+
+                <div class="welcome-section">
+                    <div>
+                        <div class="section-label">BOSHQARUV MARKAZI</div>
+                        <h2>Xush kelibsiz!</h2>
+                        <p>
+                            Virtual muzeylaringizni shu yerdan boshqaring.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+
+                    <article class="stat-card">
+                        <span class="stat-label">Jami muzeylar</span>
+                        <strong id="totalMuseums">0</strong>
+                        <small>Barcha yaratilgan muzeylar</small>
+                    </article>
+
+                    <article class="stat-card">
+                        <span class="stat-label">Jami san'at asarlari</span>
+                        <strong id="totalArtworks">0</strong>
+                        <small>Yuklangan rasmlar</small>
+                    </article>
+
+                </div>
+
+                <div class="content-card">
+                    <div class="card-heading">
+                        <div>
+                            <h3>Oxirgi muzeylar</h3>
+                            <p>Yaqinda yaratilgan muzeylar</p>
+                        </div>
+
+                        <button class="secondary-button" data-go="museums">
+                            Barchasi
+                        </button>
+                    </div>
+
+                    <div id="recentMuseums" class="empty-state">
+                        Hozircha muzeylar mavjud emas.
+                    </div>
+                </div>
+
+            </section>
+
+
+            <!-- MUSEUMS -->
+            <section class="page-section" id="page-museums" hidden>
+
+                <div class="section-toolbar">
+                    <div>
+                        <div class="section-label">MUZEYLAR</div>
+                        <h2>Barcha muzeylar</h2>
+                        <p>Yaratilgan muzeylarni boshqaring.</p>
+                    </div>
+
+                    <button class="primary-button" data-go="create">
+                        + Yangi muzey
+                    </button>
+                </div>
+
+                <div id="museumList" class="museum-list">
+                    <div class="empty-state">
+                        Hozircha muzeylar mavjud emas.
+                    </div>
+                </div>
+
+            </section>
+
+
+            <!-- CREATE MUSEUM -->
+            <section class="page-section" id="page-create" hidden>
+
+                <div class="section-label">YANGI LOYIHA</div>
+
+                <h2>Yangi muzey yaratish</h2>
+
+                <p class="section-description">
+                    Muzey haqida asosiy ma'lumotlarni kiriting.
+                </p>
+
+                <form id="museumForm" class="content-card museum-form">
+
+                    <div class="form-group">
+                        <label for="museumName">Muzey nomi</label>
+                        <input
+                                type="text"
+                                id="museumName"
+                                placeholder="Masalan: Renaissance Art Gallery"
+                                maxlength="100"
+                                required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="museumDescription">Muzey tavsifi</label>
+                        <textarea
+                                id="museumDescription"
+                                rows="4"
+                                maxlength="1000"
+                                placeholder="Muzey haqida qisqacha ma'lumot..."
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="museumCover">Muzey rasmi</label>
+
+                        <input
+                                type="file"
+                                id="museumCover"
+                                accept="image/*"
+                        >
+
+                        <small>
+                            Muqova rasmi. Keyinchalik alohida san'at
+                            asarlarini ham yuklash mumkin bo‘ladi.
+                        </small>
+                    </div>
+
+                    <div class="form-actions">
+                        <button
+                                type="button"
+                                class="secondary-button"
+                                data-go="museums"
+                        >
+                            Bekor qilish
+                        </button>
+
+                        <button type="submit" class="primary-button">
+                            Muzey yaratish
+                        </button>
+                    </div>
+
+                    <p id="museumMessage" class="message"></p>
+
+                </form>
+
+            </section>
+
+
+            <!-- SETTINGS -->
+            <section class="page-section" id="page-settings" hidden>
+
+                <div class="section-label">TIZIM</div>
+                <h2>Sozlamalar</h2>
+
+                <div class="content-card">
+                    <h3>Virtual Art Museum</h3>
+                    <p>
+                        Muzey boshqaruv tizimining birinchi versiyasi.
+                    </p>
+                    <p class="settings-version">Versiya 1.0</p>
+                </div>
+
+            </section>
+
+        </main>
+
+    </section>
+
+</div>
+
+
+<script>
+    // =====================================
+    // ADMIN PANEL — INTERFACE
+    // =====================================
+
+    const loginScreen = document.getElementById('loginScreen');
+    const dashboard = document.getElementById('dashboard');
+    const loginForm = document.getElementById('loginForm');
+    const loginMessage = document.getElementById('loginMessage');
+
+    // Hozircha interfeysni tekshirish uchun demo kirish.
+    // Haqiqiy xavfsiz login keyingi bosqichda serverga ulanadi.
+    loginForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const username = document
+            .getElementById('adminUsername')
+            .value.trim();
+
+        const password = document
+            .getElementById('adminPassword')
+            .value;
+
+        loginMessage.textContent = 'Tekshirilmoqda...';
+
+        try {
+            const response = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                loginMessage.textContent =
+                    data.error || 'Kirish amalga oshmadi.';
+                return;
+            }
+
+            loginScreen.hidden = true;
+            dashboard.hidden = false;
+
+            showPage('overview');
+
+            document.getElementById('adminUsername').value = '';
+            document.getElementById('adminPassword').value = '';
+
+        } catch (error) {
+            console.error(error);
+            loginMessage.textContent = 'Server bilan bog‘lanib bo‘lmadi.';
+        }
+    });
+
+    // Sahifalar o'rtasida o'tish
+
+    const pageTitles = {
+        overview: 'Bosh sahifa',
+        museums: 'Muzeylar',
+        create: 'Yangi muzey',
+        settings: 'Sozlamalar'
+    };
+
+    function showPage(pageName) {
+        document.querySelectorAll('.page-section').forEach(section => {
+            section.hidden = true;
+        });
+
+        const selectedPage = document.getElementById(
+            'page-' + pageName
+        );
+
+        if (!selectedPage) return;
+
+        selectedPage.hidden = false;
+
+        document.getElementById('pageTitle').textContent =
+            pageTitles[pageName] || 'Bosh sahifa';
+
+        document.querySelectorAll('.nav-item').forEach(button => {
+            button.classList.toggle(
+                'active',
+                button.dataset.page === pageName
+            );
+        });
+    }
+
+    document.querySelectorAll('[data-page]').forEach(button => {
+        button.addEventListener('click', () => {
+            showPage(button.dataset.page);
+        });
+    });
+
+    document.querySelectorAll('[data-go]').forEach(button => {
+        button.addEventListener('click', () => {
+            showPage(button.dataset.go);
+        });
+    });
+
+
+    // Chiqish tugmasi
+
+    document.getElementById('logoutButton')
+        .addEventListener('click', async () => {
+            try {
+                await fetch('/api/admin/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+            } finally {
+                dashboard.hidden = true;
+                loginScreen.hidden = false;
+                loginForm.reset();
+                loginMessage.textContent = '';
+            }
+        });
+
+    // Hozircha saqlash funksiyasi ulanmagan
+
+    document.getElementById('museumForm')
+        .addEventListener('submit', event => {
+            event.preventDefault();
+
+            document.getElementById('museumMessage').textContent =
+                'Muzeyni saqlash serveri keyingi bosqichda ulanadi.';
+        });
+
+</script>
+
+</body>
+</html>

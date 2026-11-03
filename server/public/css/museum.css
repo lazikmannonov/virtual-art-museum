@@ -1,0 +1,114 @@
+
+/* =====================================
+   VIRTUAL ART MUSEUM — 3D MUSEUM
+===================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: #101010;
+}
+
+#museum {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#museum canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+/* Qahramon tanlash oynasi */
+
+#characterSelector {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(12, 12, 12, 0.94);
+    color: #fff;
+    text-align: center;
+}
+
+#characterSelector h1 {
+    font-size: clamp(30px, 5vw, 54px);
+    font-weight: 400;
+    letter-spacing: -1px;
+}
+
+#characterSelector p {
+    color: #aaa;
+    line-height: 1.7;
+}
+
+/* San'at asarini to'liq ko'rish */
+
+#artworkViewer {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    background: rgba(0, 0, 0, 0.96);
+}
+
+#artworkViewer img {
+    display: block;
+    max-width: 92vw;
+    max-height: 88vh;
+    object-fit: contain;
+}
+
+#closeArtwork {
+    position: absolute;
+    top: 22px;
+    right: 25px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #777;
+    border-radius: 50%;
+    background: transparent;
+    color: #fff;
+    font-size: 25px;
+    cursor: pointer;
+}
+
+#closeArtwork:hover {
+    background: #fff;
+    color: #111;
+}
+
+@media (max-width: 600px) {
+    #artworkViewer {
+        padding: 12px;
+    }
+
+    #artworkViewer img {
+        max-width: 96vw;
+        max-height: 82vh;
+    }
+
+    #closeArtwork {
+        top: 12px;
+        right: 12px;
+    }
+}

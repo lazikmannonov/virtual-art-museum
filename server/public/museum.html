@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual San'at Muzeyi</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #f5f2eb;
+            font-family: Arial, sans-serif;
+        }
+
+        #museum {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        .museum-title {
+            position: fixed;
+            top: 22px;
+            left: 25px;
+            color: #29251f;
+            font-size: 19px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            z-index: 2;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="museum-title">VIRTUAL ART MUSEUM</div>
+
+<div id="museum"></div>
+
+<script type="module" src="/js/museum.js"></script>
+
+</body>
+</html>
