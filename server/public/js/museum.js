@@ -18,14 +18,15 @@ camera.position.set(0, 7, 15);
 camera.lookAt(0, 2, 0);
 
 // ==========================================
-// 2. OPTIMALLASHTIRILGAN RENDERER
+// 2. YUQORI SIFATLI RENDERER
 // ==========================================
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const renderer = new THREE.WebGLRenderer({
-    antialias: !isMobile,
-    powerPreference: 'high-performance'
+    antialias: true,
+    powerPreference: 'high-performance',
+    alpha: false
 });
 
 renderer.setSize(
@@ -33,12 +34,15 @@ renderer.setSize(
     window.innerHeight
 );
 
-// Telefonlarda ortiqcha yukni kamaytirish
+// Yuqori tasvir aniqligi
 renderer.setPixelRatio(
-    Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.5)
+    Math.min(
+        window.devicePixelRatio || 1,
+        isMobile ? 2 : 2
+    )
 );
 
-// Soyalarni o‘chirish — ishlash tezligini oshiradi
+// Soyalar hozircha o‘chirilgan
 renderer.shadowMap.enabled = false;
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
