@@ -24,25 +24,21 @@ camera.lookAt(0, 2, 0);
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: !isMobile,
     powerPreference: 'high-performance',
     alpha: false
 });
 
-renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-);
-
-// Yuqori tasvir aniqligi
+// Telefon va kompyuter uchun alohida aniqlik
 renderer.setPixelRatio(
     Math.min(
         window.devicePixelRatio || 1,
-        isMobile ? 2 : 2
+        isMobile ? 1.5 : 2
     )
 );
 
-// Soyalar hozircha o‘chirilgan
+renderer.setSize(window.innerWidth, window.innerHeight);
+
 renderer.shadowMap.enabled = false;
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1484,7 +1480,7 @@ renderer.domElement.addEventListener('pointermove', event => {
     // Qahramonning rotation qiymati o'zgartirilmaydi
     cameraOrbit -= deltaX * 0.002;
 
-    cameraPitch -= deltaY * 0.002;
+   cameraPitch += deltaY * 0.002;
 
     cameraPitch = THREE.MathUtils.clamp(
         cameraPitch,
