@@ -1,4 +1,3 @@
-
 import * as THREE from '/three/three.module.js';
 
 // ==========================================
@@ -19,24 +18,142 @@ camera.position.set(0, 7, 15);
 camera.lookAt(0, 2, 0);
 
 // ==========================================
-// 2. RENDERER
+// 2. OPTIMALLASHTIRILGAN RENDERER
 // ==========================================
 
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 const renderer = new THREE.WebGLRenderer({
-    antialias: true
+    antialias: !isMobile,
+    powerPreference: 'high-performance'
 });
 
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
 
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Telefonlarda ortiqcha yukni kamaytirish
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.5)
+);
+
+// Soyalarni o‘chirish — ishlash tezligini oshiradi
+renderer.shadowMap.enabled = false;
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 
 document.getElementById('museum').appendChild(renderer.domElement);
+
+// ==========================================
+// MOBIL JOYSTICK BOSHQARUVI
+// ==========================================
+
+let joystickX = 0;
+let joystickY = 0;
+let joystickPointerId = null;
+
+const joystickBase = document.createElement('div');
+joystickBase.style.cssText = `
+    position: fixed;
+    left: 30px;
+    bottom: 35px;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: rgba(40, 40, 40, 0.18);
+    border: 2px solid rgba(255,255,255,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    touch-action: none;
+    user-select: none;
+`;
+
+const joystickKnob = document.createElement('div');
+joystickKnob.style.cssText = `
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.8);
+    border: 2px solid rgba(80,80,80,0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    pointer-events: none;
+`;
+
+joystickBase.appendChild(joystickKnob);
+document.body.appendChild(joystickBase);
+
+// Faqat sensorli qurilmalarda ko‘rsatish
+const isTouchDevice =
+    window.matchMedia('(pointer: coarse)').matches;
+
+if (isTouchDevice) {
+    joystickBase.style.display = 'flex';
+}
+
+function updateJoystick(event) {
+    const rect = joystickBase.getBoundingClientRect();
+
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    let dx = event.clientX - centerX;
+    let dy = event.clientY - centerY;
+
+    const maxDistance = 43;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > maxDistance) {
+        dx = dx / distance * maxDistance;
+        dy = dy / distance * maxDistance;
+    }
+
+    joystickX = dx / maxDistance;
+    joystickY = dy / maxDistance;
+
+    joystickKnob.style.transform =
+        `translate(${dx}px, ${dy}px)`;
+}
+
+function resetJoystick() {
+    joystickX = 0;
+    joystickY = 0;
+    joystickPointerId = null;
+
+    joystickKnob.style.transform = 'translate(0px, 0px)';
+}
+
+joystickBase.addEventListener('pointerdown', event => {
+    if (joystickPointerId !== null) return;
+
+    event.preventDefault();
+
+    joystickPointerId = event.pointerId;
+    joystickBase.setPointerCapture(event.pointerId);
+
+    updateJoystick(event);
+});
+
+joystickBase.addEventListener('pointermove', event => {
+    if (event.pointerId !== joystickPointerId) return;
+
+    event.preventDefault();
+    updateJoystick(event);
+});
+
+joystickBase.addEventListener('pointerup', event => {
+    if (event.pointerId !== joystickPointerId) return;
+    resetJoystick();
+});
+
+joystickBase.addEventListener('pointercancel', event => {
+    if (event.pointerId !== joystickPointerId) return;
+    resetJoystick();
+});
 
 // ==========================================
 // 3. MATERIALLAR
@@ -57,26 +174,24 @@ const ceilingMaterial = new THREE.MeshStandardMaterial({
     roughness: 0.9
 });
 
-// ==========================================
-// 4. POL
-// ==========================================
-
-const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(24, 32),
-    floorMaterial
-);
-
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-
-scene.add(floor);
 
 // ==========================================
-// 5. DEVORLAR
+// 4–7. AVTOMATIK O'LCHAMLI MUZEY ZALI
 // ==========================================
+
+let ROOM_WIDTH = 24;
+let roomDepth = 32;
+
+const roomObjects = [];
+const ceilingLights = [];
+
+function addRoomObject(object) {
+    scene.add(object);
+    roomObjects.push(object);
+    return object;
+}
 
 function createWall(width, height, x, y, z, rotationY = 0) {
-
     const wall = new THREE.Mesh(
         new THREE.BoxGeometry(width, height, 0.3),
         wallMaterial
@@ -86,39 +201,108 @@ function createWall(width, height, x, y, z, rotationY = 0) {
     wall.rotation.y = rotationY;
     wall.receiveShadow = true;
 
-    scene.add(wall);
+    return addRoomObject(wall);
 }
 
-// Orqa devor
-createWall(24, 8, 0, 4, -16);
+function buildMuseumRoom(depth, width = 24) {
+    ROOM_WIDTH = width;
+    // Eski pol, devor, shift va chiroqlarni olib tashlash
+    roomObjects.forEach(object => {
+        scene.remove(object);
 
-// Chap devor
-createWall(32, 8, -12, 4, 0, Math.PI / 2);
+        if (object.geometry) object.geometry.dispose();
+    });
 
-// O'ng devor
-createWall(32, 8, 12, 4, 0, Math.PI / 2);
+    ceilingLights.forEach(light => {
+        scene.remove(light);
+        if (light.target) scene.remove(light.target);
+    });
 
-// Old devor
-createWall(24, 8, 0, 4, 16);
+    roomObjects.length = 0;
+    ceilingLights.length = 0;
 
-// ==========================================
-// 6. SHIFT
-// ==========================================
+    roomDepth = depth;
+    camera.far = Math.max(100, depth * 2);
+    camera.updateProjectionMatrix();
 
-const ceiling = new THREE.Mesh(
-    new THREE.PlaneGeometry(24, 32),
-    ceilingMaterial
-);
+    // POL
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_WIDTH, roomDepth),
+        floorMaterial
+    );
 
-ceiling.rotation.x = Math.PI / 2;
-ceiling.position.y = 8;
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    addRoomObject(floor);
 
-scene.add(ceiling);
+    // ORQA DEVOR
+    createWall(
+        ROOM_WIDTH, 8,
+        0, 4, -roomDepth / 2
+    );
 
-// ==========================================
-// 7. UMUMIY YORITISH
-// ==========================================
+    // CHAP DEVOR
+    createWall(
+        roomDepth, 8,
+        -ROOM_WIDTH / 2, 4, 0,
+        Math.PI / 2
+    );
 
+    // O'NG DEVOR
+    createWall(
+        roomDepth, 8,
+        ROOM_WIDTH / 2, 4, 0,
+        Math.PI / 2
+    );
+
+    // OLD DEVOR
+    createWall(
+        ROOM_WIDTH, 8,
+        0, 4, roomDepth / 2
+    );
+
+    // SHIFT
+    const ceiling = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_WIDTH, roomDepth),
+        ceilingMaterial
+    );
+
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = 8;
+    addRoomObject(ceiling);
+
+    // SHIFT CHIROQLARI
+    for (let x = -8; x <= 8; x += 8) {
+        for (let z = -roomDepth / 2 + 6;
+             z <= roomDepth / 2 - 6;
+             z += 10) {
+
+            const light = new THREE.SpotLight(
+                0xffffff,
+                55,
+                20,
+                Math.PI / 5,
+                0.5,
+                1.5
+            );
+
+            light.position.set(x, 7.5, z);
+            light.target.position.set(x, 0, z);
+
+            scene.add(light);
+            scene.add(light.target);
+
+            ceilingLights.push(light);
+        }
+    }
+
+    console.log('Muzey zali o‘lchami:', ROOM_WIDTH, 'x', roomDepth);
+}
+
+// Dastlabki zal
+buildMuseumRoom(32);
+
+// UMUMIY YORITISH
 const ambientLight = new THREE.HemisphereLight(
     0xffffff,
     0xc9c2b5,
@@ -133,141 +317,16 @@ const mainLight = new THREE.DirectionalLight(
 );
 
 mainLight.position.set(-5, 12, 8);
-mainLight.castShadow = true;
+mainLight.castShadow = false;
 
 scene.add(mainLight);
 
-// Shift chiroqlari
-for (let x = -8; x <= 8; x += 8) {
-
-    for (let z = -10; z <= 10; z += 10) {
-
-        const light = new THREE.SpotLight(
-            0xffffff,
-            55,
-            20,
-            Math.PI / 5,
-            0.5,
-            1.5
-        );
-
-        light.position.set(x, 7.5, z);
-        light.target.position.set(x, 0, z);
-
-        scene.add(light);
-        scene.add(light.target);
-    }
-}
 
 // ==========================================
-// 8. NAMUNAVIY SURATLAR
+// 8. HAQIQIY MUZEY RASMLARI
 // ==========================================
 
-function createArtworkTexture(number) {
-
-    // Turli shakldagi namunaviy suratlar
-    const formats = [
-        [512, 384], // Gorizontal
-        [384, 512], // Vertikal
-        [512, 512], // Kvadrat
-        [600, 400], // Gorizontal
-        [400, 600]  // Vertikal
-    ];
-
-    const [width, height] = formats[number % formats.length];
-
-    const canvas = document.createElement('canvas');
-
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext('2d');
-
-    const palettes = [
-        ['#343B43', '#B38A60', '#D6B98D'],
-        ['#8A6C55', '#D6C1A1', '#414B45'],
-        ['#343E50', '#B7A18A', '#D6C7AE'],
-        ['#76604C', '#D7C4A7', '#A8A08C'],
-        ['#3E4744', '#B99A75', '#E0D5C3']
-    ];
-
-    const colors = palettes[number % palettes.length];
-
-    const cx = width / 2;
-    const cy = height / 2;
-
-    const radius = Math.min(width, height) * 0.28;
-
-    // Fon
-    ctx.fillStyle = '#E9E2D5';
-    ctx.fillRect(0, 0, width, height);
-
-    // Asosiy shakl
-    ctx.fillStyle = colors[0];
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Ikkinchi shakl
-    ctx.fillStyle = colors[1];
-
-    ctx.beginPath();
-
-    ctx.ellipse(
-        cx,
-        cy,
-        radius * 0.65,
-        radius * 1.15,
-        0.6,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-    // Uchinchi shakl
-    ctx.fillStyle = colors[2];
-
-    ctx.beginPath();
-
-    ctx.arc(
-        cx + radius * 0.65,
-        cy - radius * 0.65,
-        radius * 0.4,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-    // Pastki qism
-    ctx.fillStyle = '#F0E9DC';
-
-    ctx.beginPath();
-    ctx.moveTo(0, height * 0.81);
-    ctx.lineTo(width, height * 0.68);
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.fill();
-
-    // Surat raqami
-    ctx.fillStyle = '#554A3D';
-
-    ctx.font = `${Math.max(12, width * 0.035)}px Georgia`;
-
-    ctx.fillText(
-        'ART COLLECTION / ' + (number + 1),
-        width * 0.05,
-        height * 0.92
-    );
-
-    const texture = new THREE.CanvasTexture(canvas);
-
-    texture.colorSpace = THREE.SRGBColorSpace;
-
-    return texture;
-}
+// Rasmlar API orqali yuklanadi.
 
 // ==========================================
 // 9. RAMKA VA SURAT YARATISH
@@ -279,7 +338,7 @@ function createArtwork(
     z,
     rotationY,
     number,
-    texture = createArtworkTexture(number)
+    texture
 ) {
 
     const group = new THREE.Group();
@@ -392,49 +451,248 @@ function createArtwork(
     return picture;
 }
 
+
 // ==========================================
-// 10. SURATLARNI DEVORLARGA JOYLASHTIRISH
+// 10. HAQIQIY RASMLARNI DEVORLARGA JOYLASHTIRISH
 // ==========================================
 
-let artworkNumber = 0;
+async function loadMuseumArtworks() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const slug = params.get('slug');
 
-// Orqa devor
-for (const x of [-7, 0, 7]) {
+        if (!slug) {
+            throw new Error('Muzey manzili ko‘rsatilmagan.');
+        }
 
-    createArtwork(
-        x,
-        4.2,
-        -15.78,
-        0,
-        artworkNumber++
-    );
+        console.log('Muzey ma’lumotlari yuklanmoqda...');
+
+        const response = await fetch(
+            `/api/museums/${encodeURIComponent(slug)}`,
+            { cache: 'no-store' }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Muzeyni yuklab bo‘lmadi.');
+        }
+
+        const museum = data.museum;
+        const artworks = data.artworks || [];
+
+        document.title = museum.name;
+
+        const titleElement = document.querySelector('.museum-title');
+
+        if (titleElement) {
+            titleElement.textContent = museum.name;
+        }
+
+        if (artworks.length === 0) {
+            console.warn('Bu muzeyda hali rasmlar mavjud emas.');
+            return;
+        }
+
+        // Barcha rasmlarni joylashtirish
+        const artworksToPlace = artworks;
+
+// Har bir devorga tushadigan rasmlar soni
+        const rearCount = Math.ceil(artworksToPlace.length / 3);
+        const sideCount = Math.ceil(artworksToPlace.length / 3);
+
+// Rasmlar uchun zal o‘lchamini hisoblash
+        const requiredWidth = Math.max(24, 8 + rearCount * 3.2);
+        const requiredDepth = Math.max(32, 8 + sideCount * 3.2);
+
+// Yangi o‘lchamdagi zalni qurish
+        buildMuseumRoom(requiredDepth, requiredWidth);
+
+        console.log('Zal o‘lchami:', {
+            width: requiredWidth,
+            depth: requiredDepth,
+            artworks: artworksToPlace.length
+        });
+
+        // ==========================================
+        // RASMLARNI DEVORLARGA TAQSIMLASH
+        // ==========================================
+
+        const wallGroups = [
+            { name: 'orqa', positions: [] },
+            { name: 'chap', positions: [] },
+            { name: 'o‘ng', positions: [] }
+        ];
+
+        // Rasmlarni navbat bilan devorlarga ajratish
+        artworksToPlace.forEach((artwork, index) => {
+            const wallIndex = index % 3;
+
+            wallGroups[wallIndex].positions.push({
+                artwork,
+                index
+            });
+        });
+
+        // Har bir rasmning joylashuvini saqlash
+        const positions = new Array(artworksToPlace.length);
+
+        wallGroups.forEach((wall, wallIndex) => {
+            const count = wall.positions.length;
+
+            if (count === 0) return;
+
+            wall.positions.forEach((item, index) => {
+                let position;
+
+                if (wallIndex === 0) {
+                    // ORQA DEVOR
+                    const span = ROOM_WIDTH - 6;
+
+                    const x = count === 1
+                        ? 0
+                        : -span / 2 +
+                        (span * (index + 1)) / (count + 1);
+
+                    position = {
+                        x,
+                        y: 4.2,
+                        z: -roomDepth / 2 + 0.22,
+                        rotationY: 0
+                    };
+
+                } else if (wallIndex === 1) {
+                    // CHAP DEVOR
+                    const span = roomDepth - 6;
+
+                    const z = count === 1
+                        ? 0
+                        : -span / 2 +
+                        (span * (index + 1)) / (count + 1);
+
+                    position = {
+                        x: -ROOM_WIDTH / 2 + 0.22,
+                        y: 4.2,
+                        z,
+                        rotationY: Math.PI / 2
+                    };
+
+                } else {
+                    // O‘NG DEVOR
+                    const span = roomDepth - 6;
+                    const z = count === 1
+                        ? 0
+                        : -span / 2 +
+                        (span * (index + 1)) / (count + 1);
+
+                    position = {
+                        x: ROOM_WIDTH / 2 - 0.22,
+                        y: 4.2,
+                        z,
+                        rotationY: -Math.PI / 2
+                    };
+                }
+
+                // Rasmning asl tartibini saqlash
+                positions[item.index] = position;
+            });
+        });
+
+        console.log('Rasmlar taqsimlandi:', {
+            orqa: wallGroups[0].positions.length,
+            chap: wallGroups[1].positions.length,
+            ong: wallGroups[2].positions.length
+        });
+
+        // ==========================================
+        // RASMLARNI YUKLASH VA DEVORGA CHIQARISH
+        // ==========================================
+
+        const textureLoader = new THREE.TextureLoader();
+
+// Qurilmaga ortiqcha yuk tushirmaslik uchun anisotropy chegarasi
+        const maxAnisotropy = Math.min(
+            4,
+            renderer.capabilities.getMaxAnisotropy()
+        );
+
+// Rasmlarni 3 tadan yuklash
+        const batchSize = 3;
+
+        for (
+            let start = 0;
+            start < artworksToPlace.length;
+            start += batchSize
+        ) {
+            const batch = artworksToPlace.slice(
+                start,
+                start + batchSize
+            );
+
+            await Promise.all(
+                batch.map(async (artwork, batchIndex) => {
+                    const i = start + batchIndex;
+                    const position = positions[i];
+
+                    if (!position || !artwork.image_url) {
+                        console.warn(
+                            'Rasm joylashuvi yoki manzili topilmadi:',
+                            artwork
+                        );
+                        return;
+                    }
+
+                    try {
+                        const texture = await textureLoader.loadAsync(
+                            artwork.image_url
+                        );
+
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                        texture.anisotropy = maxAnisotropy;
+
+                        const picture = createArtwork(
+                            position.x,
+                            position.y,
+                            position.z,
+                            position.rotationY,
+                            i + 1,
+                            texture
+                        );
+
+                        picture.userData.artworkId = artwork.id;
+                        picture.userData.artworkTitle =
+                            artwork.title || `San'at asari ${i + 1}`;
+
+                        console.log(
+                            'Rasm yuklandi:',
+                            artwork.title || i + 1
+                        );
+
+                    } catch (imageError) {
+                        console.error(
+                            'Rasmni yuklashda xato:',
+                            artwork.title,
+                            imageError
+                        );
+                    }
+                })
+            );
+
+            console.log(
+                `Yuklandi: ${Math.min(start + batch.length, artworksToPlace.length)} / ${artworksToPlace.length}`
+            );
+        }
+        console.log(
+            `${artworksToPlace.length} ta rasm joylashtirishga tayyor.`
+        );
+
+    } catch (error) {
+        console.error(
+            'Muzey rasmlarini yuklashda xato:',
+            error
+        );
+    }
 }
-
-// Chap devor
-for (const z of [-11, -4, 4, 11]) {
-
-    createArtwork(
-        -11.78,
-        4.2,
-        z,
-        Math.PI / 2,
-        artworkNumber++
-    );
-}
-
-// O'ng devor
-for (const z of [-11, -4, 4, 11]) {
-
-    createArtwork(
-        11.78,
-        4.2,
-        z,
-        -Math.PI / 2,
-        artworkNumber++
-    );
-}
-
-console.log('11 ta namunaviy surat yaratildi!');
 
 // ==========================================
 // 11. SURATNI KATTA EKRANDA OCHISH
@@ -571,20 +829,28 @@ window.addEventListener('keydown', (event) => {
         closeArtwork();
     }
 });
+// Muzey rasmlarini bazadan yuklash
+loadMuseumArtworks();
 
 // ==========================================
 // 14. SURATNI BOSISH ORQALI ANIQLASH
 // ==========================================
 
 const raycaster = new THREE.Raycaster();
-
 const pointer = new THREE.Vector2();
+
+const ARTWORK_INTERACTION_DISTANCE = 4;
 
 renderer.domElement.addEventListener('click', (event) => {
     if (cameraWasDragged) {
         cameraWasDragged = false;
         return;
     }
+
+    if (!player || artworkViewer.style.display === 'flex') {
+        return;
+    }
+
     const rect = renderer.domElement.getBoundingClientRect();
 
     pointer.x =
@@ -604,10 +870,20 @@ renderer.domElement.addEventListener('click', (event) => {
         item => item.object.userData.isArtwork === true
     );
 
-    if (selectedPicture) {
+    if (!selectedPicture) return;
 
-        openArtwork(selectedPicture.object);
+    // Qahramon va rasm orasidagi masofa
+    const dx = player.position.x - selectedPicture.point.x;
+    const dz = player.position.z - selectedPicture.point.z;
+
+    const distance = Math.hypot(dx, dz);
+
+    if (distance > ARTWORK_INTERACTION_DISTANCE) {
+        console.log('Rasmni ochish uchun yaqinroq boring.');
+        return;
     }
+
+    openArtwork(selectedPicture.object);
 });
 
 // ==========================================
@@ -1254,6 +1530,9 @@ function updatePlayer() {
     if (pressedKeys['a'] || pressedKeys['arrowleft']) turn += 1;
     if (pressedKeys['d'] || pressedKeys['arrowright']) turn -= 1;
 
+// Joystick orqali burilish
+    turn -= joystickX;
+
     // Qahramon joyida buriladi
     player.rotation.y += turn * turnSpeed * delta;
 
@@ -1263,6 +1542,12 @@ function updatePlayer() {
     if (pressedKeys['w'] || pressedKeys['arrowup']) forward += 1;
     if (pressedKeys['s'] || pressedKeys['arrowdown']) forward -= 1;
 
+// Joystick orqali yurish
+    forward -= joystickY;
+
+// Harakat qiymatini -1 va 1 oralig‘ida saqlash
+    forward = THREE.MathUtils.clamp(forward, -1, 1);
+    turn = THREE.MathUtils.clamp(turn, -1, 1);
     const moving = forward !== 0;
 
     if (moving) {
@@ -1277,11 +1562,15 @@ function updatePlayer() {
 
         // Muzey chegaralari
         player.position.x = THREE.MathUtils.clamp(
-            player.position.x, -10.5, 10.5
+            player.position.x,
+            -ROOM_WIDTH / 2 + 1.5,
+            ROOM_WIDTH / 2 - 1.5
         );
 
         player.position.z = THREE.MathUtils.clamp(
-            player.position.z, -14.5, 14.5
+            player.position.z,
+            -roomDepth / 2 + 1.5,
+            roomDepth / 2 - 1.5
         );
 
         // Yurish animatsiyasi
@@ -1323,7 +1612,7 @@ function updatePlayer() {
         );
     }
 
-    // KLAVIATURA BOSHLANGANDA KAMERA QAHRA MON ORQASIGA QAYTADI
+// KLAVIATURA YOKI JOYSTICK ISHLAGANDA KAMERA QAYTADI
 
     const keyboardActive =
         pressedKeys['w'] ||
@@ -1333,7 +1622,9 @@ function updatePlayer() {
         pressedKeys['arrowup'] ||
         pressedKeys['arrowdown'] ||
         pressedKeys['arrowleft'] ||
-        pressedKeys['arrowright'];
+        pressedKeys['arrowright'] ||
+        Math.abs(joystickX) > 0.1 ||
+        Math.abs(joystickY) > 0.1;
 
     if (keyboardActive) {
         cameraOrbit = THREE.MathUtils.damp(
