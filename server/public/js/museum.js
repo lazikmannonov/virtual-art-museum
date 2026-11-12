@@ -339,20 +339,27 @@ function buildMuseumRoom(depth, width = 24) {
     ceiling.position.y = 8;
     addRoomObject(ceiling);
 
-    // SHIFT CHIROQLARI
-    for (let x = -8; x <= 8; x += 8) {
-        for (let z = -roomDepth / 2 + 6;
-             z <= roomDepth / 2 - 6;
-             z += 10) {
+   // SHIFT CHIROQLARI
+// Spotlight chiroqlar faqat kompyuterda ishlaydi.
+// Telefonda ortiqcha grafik yuk kamaytiriladi.
 
+if (!isMobile) {
+    const lightStep = Math.max(10, roomDepth / 4);
+
+    for (let x = -8; x <= 8; x += 8) {
+        let lightCount = 0;
+
+        for (
+            let z = -roomDepth / 2 + 6;
+            z <= roomDepth / 2 - 6 && lightCount < 4;
+            z += lightStep, lightCount++
+        ) {
             const light = new THREE.SpotLight(
-                0xffffff,
-                18,
-                20,
-                Math.PI / 5,
-                0.5,
-                1.5
+                0xffffff, 9, 20,
+                Math.PI / 5, 0.65, 1.5
             );
+
+            light.castShadow = false;
 
             light.position.set(x, 7.5, z);
             light.target.position.set(x, 0, z);
@@ -363,6 +370,7 @@ function buildMuseumRoom(depth, width = 24) {
             ceilingLights.push(light);
         }
     }
+}
 
     console.log('Muzey zali o‘lchami:', ROOM_WIDTH, 'x', roomDepth);
 }
