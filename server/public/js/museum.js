@@ -25,7 +25,7 @@ const isMobile =
     /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     window.matchMedia('(pointer: coarse)').matches;
 
-const maxPixelRatio = isMobile ? 1 : 1.5;
+const maxPixelRatio = isMobile ? 0.85 : 1.5;
 
 const renderer = new THREE.WebGLRenderer({
     antialias: !isMobile,
@@ -43,7 +43,8 @@ renderer.setPixelRatio(
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 
-renderer.shadowMap.enabled = true;
+// Telefonda soyalar o‘chiriladi
+renderer.shadowMap.enabled = !isMobile;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -51,6 +52,82 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 
 document.getElementById('museum').appendChild(renderer.domElement);
+
+// ==========================================
+// TELEFON UCHUN LANDSCAPE REJIM
+// ==========================================
+
+const landscapeStyle = document.createElement('style');
+
+landscapeStyle.textContent = `
+    #landscapeNotice {
+        position: fixed;
+        inset: 0;
+        z-index: 30000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 25px;
+        text-align: center;
+        background: #eeeae0;
+        color: #292720;
+        font-family: Arial, sans-serif;
+    }
+
+    .landscape-icon {
+        font-size: 58px;
+        margin-bottom: 25px;
+        animation: rotatePhone 2s ease-in-out infinite;
+    }
+
+    #landscapeNotice h2 {
+        font-size: 23px;
+        margin: 0 0 12px;
+    }
+
+    #landscapeNotice p {
+        color: #817b6e;
+        font-size: 14px;
+        line-height: 1.7;
+        max-width: 300px;
+    }
+
+    @keyframes rotatePhone {
+        0%, 100% { transform: rotate(0deg); }
+        50% { transform: rotate(90deg); }
+    }
+`;
+
+document.head.appendChild(landscapeStyle);
+
+const landscapeNotice = document.createElement('div');
+landscapeNotice.id = 'landscapeNotice';
+
+landscapeNotice.innerHTML = `
+    <div class="landscape-icon">📱</div>
+    <h2>Telefonni aylantiring</h2>
+    <p>
+        Virtual muzeydan qulay foydalanish uchun
+        telefoningizni gorizontal holatga o'tkazing.
+    </p>
+`;
+
+document.body.appendChild(landscapeNotice);
+
+function updateLandscapeMode() {
+    const portrait = window.matchMedia(
+        '(orientation: portrait)'
+    ).matches;
+
+    landscapeNotice.style.display =
+        isMobile && portrait ? 'flex' : 'none';
+}
+
+updateLandscapeMode();
+
+window.addEventListener('orientationchange', updateLandscapeMode);
+window.addEventListener('resize', updateLandscapeMode);
 
 // ==========================================
 // STUDIYA MUHITI (aks-sado va yumshoq yorug‘lik)
@@ -105,9 +182,11 @@ function createStudioEnvironment(targetRenderer) {
     return target.texture;
 }
 
-// Asosiy sahna uchun muhit
-scene.environment = createStudioEnvironment(renderer);
-scene.environmentIntensity = 0.3;
+// Muhit akslarini faqat kompyuterda hisoblash
+if (!isMobile) {
+    scene.environment = createStudioEnvironment(renderer);
+    scene.environmentIntensity = 0.3;
+}
 
 // ==========================================
 // MOBIL JOYSTICK BOSHQARUVI
@@ -400,10 +479,12 @@ const mainLight = new THREE.DirectionalLight(
 
 mainLight.position.set(-5, 12, 8);
 
-mainLight.castShadow = true;
+mainLight.castShadow = !isMobile;
 
-mainLight.shadow.mapSize.width = 2048;
-mainLight.shadow.mapSize.height = 2048;
+if (!isMobile) {
+    mainLight.shadow.mapSize.width = 2048;
+    mainLight.shadow.mapSize.height = 2048;
+}
 
 mainLight.shadow.camera.left = -25;
 mainLight.shadow.camera.right = 25;
@@ -525,7 +606,8 @@ function createArtwork(
 
     scene.add(group);
 
-    // Surat uchun alohida yoritish
+   // Surat chiroqlari faqat kompyuterda
+if (!isMobile) {
     const spotlight = new THREE.SpotLight(
         0xffffff,
         10,
@@ -540,11 +622,8 @@ function createArtwork(
 
     scene.add(spotlight);
     scene.add(spotlight.target);
-
-    return picture;
 }
-
-
+    
 // ==========================================
 // 10. HAQIQIY RASMLARNI DEVORLARGA JOYLASHTIRISH
 // ==========================================
@@ -992,23 +1071,48 @@ window.addEventListener('resize', () => {
 
     camera.updateProjectionMatrix();
 
+    renderer.setPixelRatio(
+        Math.min(
+            window.devicePixelRatio || 1,
+            maxPixelRatio
+        )
+    );
+
     renderer.setSize(
         window.innerWidth,
         window.innerHeight
     );
 
-    renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, maxPixelRatio)
-    );
+    updateLandscapeMode();
 });
-
+    
 // ==========================================
 // 16. 3D ANIMATSIYA
 // ==========================================
 
-function animate() {
+// ==========================================
+// OPTIMALLASHTIRILGAN ANIMATSIYA
+// ==========================================
+
+let lastFrameTime = 0;
+
+const mobileFrameInterval = 1000 / 30;
+
+function animate(timestamp = 0) {
 
     requestAnimationFrame(animate);
+
+    // Telefonda 30 FPS
+    if (
+        isMobile &&
+        timestamp - lastFrameTime < mobileFrameInterval
+    ) {
+        return;
+    }
+
+    lastFrameTime = timestamp;
+
+    updatePlayer();
 
     renderer.render(scene, camera);
 }
@@ -1373,11 +1477,11 @@ async function loadCharacterModel(type) {
     const model = skeletonUtils.clone(gltf.scene);
 
     model.traverse(object => {
-        if (object.isMesh) {
-            object.castShadow = true;
-            object.receiveShadow = true;
-            object.frustumCulled = false;
-        }
+       if (object.isMesh) {
+    object.castShadow = !isMobile;
+    object.receiveShadow = !isMobile;
+    object.frustumCulled = true;
+}
     });
 
     // O‘lchamni moslash
@@ -1481,10 +1585,11 @@ async function generateCharacterPreviews() {
         const previewScene = new THREE.Scene();
         previewScene.background = null;
 
-        envTexture = createStudioEnvironment(previewRenderer);
-        previewScene.environment = envTexture;
-        previewScene.environmentIntensity = 0.9;
-
+      if (!isMobile) {
+    envTexture = createStudioEnvironment(previewRenderer);
+    previewScene.environment = envTexture;
+    previewScene.environmentIntensity = 0.9;
+}
         const previewCamera = new THREE.PerspectiveCamera(
             35,
             300 / 240,
@@ -1684,7 +1789,7 @@ function makeToonSkin(kind, sheenHex) {
         material.emissiveIntensity = 0.05;
     }
 
-    if (settings.bump > 0) {
+   if (settings.bump > 0 && !isMobile) {
         material.bumpMap = getFurNoiseTexture();
         material.bumpScale = settings.bump;
     }
@@ -1764,7 +1869,11 @@ function createCharacter(type) {
 
     function ball(parent, x, y, z, sx, sy, sz, material) {
         const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(1, 32, 24),
+           new THREE.SphereGeometry(
+    1,
+    isMobile ? 16 : 32,
+    isMobile ? 12 : 24
+)
             material
         );
 
@@ -1779,7 +1888,11 @@ function createCharacter(type) {
 
     // Rangli (gradient) ellipsoid: dog‘lar yumshoq o‘tadi
     function toonSphere(parent, x, y, z, sx, sy, sz, material, base, patches = []) {
-        const geometry = new THREE.SphereGeometry(1, 56, 40);
+       const geometry = new THREE.SphereGeometry(
+                1,
+              isMobile ? 24 : 56,
+              isMobile ? 16 : 40
+         );
         const position = geometry.attributes.position;
         const colors = new Float32Array(position.count * 3);
 
@@ -1837,7 +1950,12 @@ function createCharacter(type) {
 
     // Uchi boshqa rangga o‘tadigan konus (quloq, dum, tikan)
     function toonCone(parent, x, y, z, radius, height, rx, rz, flatten, base, tip) {
-        const geometry = new THREE.ConeGeometry(radius, height, 40, 12);
+       const geometry = new THREE.ConeGeometry(
+             radius,
+             height,
+             isMobile ? 12 : 40,
+             isMobile ? 4 : 12
+        );
         const position = geometry.attributes.position;
         const colors = new Float32Array(position.count * 3);
 
@@ -2526,12 +2644,5 @@ function updatePlayer() {
 // 22. QAHRAMON ANIMATSIYASI
 // ==========================================
 
-function animatePlayer() {
-    requestAnimationFrame(animatePlayer);
-
-    updatePlayer();
-}
-
-animatePlayer();
 
 console.log('5 ta qahramon tanlash va yurish tizimi tayyor!');
