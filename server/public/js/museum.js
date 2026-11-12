@@ -1256,7 +1256,6 @@ function generateCharacterPreviews() {
             const character = createCharacter(type.id);
 
             character.position.set(0, 0, 10);
-            character.rotation.y = Math.PI;
 
             previewScene.add(character);
 
