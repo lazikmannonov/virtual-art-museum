@@ -623,6 +623,8 @@ if (!isMobile) {
     scene.add(spotlight);
     scene.add(spotlight.target);
 }
+    return group;
+}
     
 // ==========================================
 // 10. HAQIQIY RASMLARNI DEVORLARGA JOYLASHTIRISH
@@ -2640,10 +2642,5 @@ function updatePlayer() {
 
     camera.lookAt(cameraTarget);
 }
-
-// ==========================================
-// 22. QAHRAMON ANIMATSIYASI
-// ==========================================
-
 
 console.log('5 ta qahramon tanlash va yurish tizimi tayyor!');
