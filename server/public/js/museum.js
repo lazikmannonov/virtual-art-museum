@@ -786,10 +786,10 @@ async function loadMuseumArtworks() {
         const textureLoader = new THREE.TextureLoader();
 
         // Qurilmaga ortiqcha yuk tushirmaslik uchun anisotropy chegarasi
-        const maxAnisotropy = Math.min(
-            4,
-            renderer.capabilities.getMaxAnisotropy()
-        );
+             const maxAnisotropy = Math.min(
+              8,
+              renderer.capabilities.getMaxAnisotropy()
+         );
 
         // Rasmlarni 3 tadan yuklash
         const batchSize = 3;
@@ -823,7 +823,15 @@ async function loadMuseumArtworks() {
                         );
 
                         texture.colorSpace = THREE.SRGBColorSpace;
-                        texture.anisotropy = maxAnisotropy;
+
+                       texture.anisotropy = maxAnisotropy;
+
+                       texture.generateMipmaps = true;
+ 
+                       texture.minFilter = THREE.LinearMipmapLinearFilter;
+                       texture.magFilter = THREE.LinearFilter;
+
+                        texture.needsUpdate = true;
 
                         const picture = createArtwork(
                             position.x,
@@ -2396,7 +2404,7 @@ window.addEventListener('blur', () => {
 let cameraOrbit = 0;
 let cameraPitch = 0.22;
 
-const cameraDistance = 5.5;
+const cameraDistance = 4.6;
 const playerSpeed = 3.2;
 const turnSpeed = 2.0;
 
