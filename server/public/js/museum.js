@@ -1867,24 +1867,25 @@ function createCharacter(type) {
     // Shakl yasash yordamchilari
     // ------------------------------------------
 
-    function ball(parent, x, y, z, sx, sy, sz, material) {
-        const mesh = new THREE.Mesh(
-           new THREE.SphereGeometry(
-    1,
-    isMobile ? 16 : 32,
-    isMobile ? 12 : 24
-)
-            material
-        );
+ 
+function ball(parent, x, y, z, sx, sy, sz, material) {
+    const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(
+            1,
+            isMobile ? 16 : 32,
+            isMobile ? 12 : 24
+        ),
+        material
+    );
 
-        mesh.position.set(x, y, z);
-        mesh.scale.set(sx, sy, sz);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        parent.add(mesh);
+    mesh.position.set(x, y, z);
+    mesh.scale.set(sx, sy, sz);
+    mesh.castShadow = !isMobile;
+    mesh.receiveShadow = !isMobile;
+    parent.add(mesh);
 
-        return mesh;
-    }
+    return mesh;
+}
 
     // Rangli (gradient) ellipsoid: dog‘lar yumshoq o‘tadi
     function toonSphere(parent, x, y, z, sx, sy, sz, material, base, patches = []) {
