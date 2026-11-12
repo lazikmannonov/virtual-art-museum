@@ -1945,7 +1945,7 @@ async function generateCharacterPreviews() {
         previewRenderer.setClearColor(0x000000, 0);
 
         previewRenderer.shadowMap.enabled = true;
-        previewRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        previewRenderer.shadowMap.type = THREE.PCFShadowMap;
 
         const previewScene = new THREE.Scene();
         previewScene.background = null;
