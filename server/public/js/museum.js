@@ -526,8 +526,8 @@ function createArtwork(
     const aspectRatio = imageWidth / imageHeight;
 
     // Ramkaning maksimal ichki o'lchami
-    const maxWidth = 2.2;
-    const maxHeight = 1.6;
+  const maxWidth = 2.9;
+  const maxHeight = 2.2;
 
     // Surat nisbatini saqlagan holda moslashtirish
     let pictureWidth = maxWidth;
