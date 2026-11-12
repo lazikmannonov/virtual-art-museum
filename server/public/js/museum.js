@@ -101,7 +101,7 @@ function createStudioEnvironment(targetRenderer) {
 
 // Asosiy sahna uchun muhit
 scene.environment = createStudioEnvironment(renderer);
-scene.environmentIntensity = 0.35;
+scene.environmentIntensity = 0.3;
 
 // ==========================================
 // MOBIL JOYSTICK BOSHQARUVI
@@ -373,7 +373,7 @@ buildMuseumRoom(32);
 const ambientLight = new THREE.HemisphereLight(
     0xffffff,
     0xd4cbbb,
-    0.85
+    1.05
 );
 
 scene.add(ambientLight);
@@ -1253,10 +1253,196 @@ characterTypes.forEach(character => {
 });
 
 // ==========================================
+// HAQIQIY 3D MODELLAR (GLB) — bo‘lmasa avvalgi qahramonlar ishlaydi
+// ==========================================
+
+// Modellar /models/ papkasiga qo‘yiladi (public/models/fox.glb va hokazo)
+// height  — qahramonning balandligi (zal o‘lchamiga mos ~2.4)
+// rotationY — model qaysi tomonga qarasa shu qiymatni o‘zgartiring
+//             (Math.PI — model orqasi bilan turgan bo‘lsa to‘g‘rilaydi, 0 — o‘zgarmaydi)
+const CHARACTER_MODELS = {
+    dinosaur: { url: '/models/dinosaur.glb', height: 2.4, rotationY: Math.PI },
+    fox:      { url: '/models/fox.glb',      height: 2.4, rotationY: Math.PI },
+    penguin:  { url: '/models/penguin.glb',  height: 2.4, rotationY: Math.PI },
+    robot:    { url: '/models/robot.glb',    height: 2.6, rotationY: Math.PI },
+    bear:     { url: '/models/bear.glb',     height: 2.5, rotationY: Math.PI }
+};
+
+const characterModelCache = {};
+let modelToolsPromise = null;
+let gltfLoader = null;
+let skeletonUtils = null;
+
+// Yuklagichlar alohida (dinamik) import qilinadi: fayllar yo‘q bo‘lsa sayt buzilmaydi
+function getModelTools() {
+    if (!modelToolsPromise) {
+        modelToolsPromise = Promise.all([
+            import('/three/examples/jsm/loaders/GLTFLoader.js'),
+            import('/three/examples/jsm/utils/SkeletonUtils.js')
+        ]).then(([gltfModule, skeletonModule]) => {
+            gltfLoader = new gltfModule.GLTFLoader();
+            skeletonUtils = skeletonModule;
+            return true;
+        }).catch(error => {
+            console.warn(
+                'GLB yuklagichlar topilmadi, oddiy qahramonlar ishlatiladi:',
+                error
+            );
+            return false;
+        });
+    }
+
+    return modelToolsPromise;
+}
+
+// Yurmayotgan qismlar uchun bo‘sh "soxta" bo‘g‘imlar
+const dummyParts = {
+    leftArm: new THREE.Object3D(),
+    rightArm: new THREE.Object3D(),
+    leftLeg: new THREE.Object3D(),
+    rightLeg: new THREE.Object3D()
+};
+
+// idle / walk animatsiyasini almashtirish
+function setCharacterAction(character, name) {
+    const anim = character.userData.anim;
+
+    if (!anim) return;
+
+    const wanted = anim.actions[name];
+
+    // Bu holat uchun animatsiya yo‘q bo‘lsa — mavjudini to‘xtatib/davom ettiramiz
+    if (!wanted) {
+        if (anim.current) anim.current.paused = (name === 'idle');
+        return;
+    }
+
+    wanted.paused = false;
+
+    if (anim.current === wanted) return;
+
+    wanted.reset().fadeIn(0.2).play();
+
+    if (anim.current) anim.current.fadeOut(0.2);
+
+    anim.current = wanted;
+}
+
+// GLB modelni yuklab, o‘lchamini va yo‘nalishini tayyorlaydi.
+// Model topilmasa null qaytaradi.
+async function loadCharacterModel(type) {
+    const config = CHARACTER_MODELS[type];
+
+    if (!config) return null;
+
+    const ready = await getModelTools();
+
+    if (!ready) return null;
+
+    if (!characterModelCache[type]) {
+        characterModelCache[type] = gltfLoader
+            .loadAsync(config.url)
+            .catch(error => {
+                console.warn(
+                    config.url + ' yuklanmadi, oddiy qahramon ishlatiladi:',
+                    error
+                );
+                return null;
+            });
+    }
+
+    const gltf = await characterModelCache[type];
+
+    if (!gltf) return null;
+
+    // Skeletli modellarni ham to‘g‘ri nusxalash
+    const model = skeletonUtils.clone(gltf.scene);
+
+    model.traverse(object => {
+        if (object.isMesh) {
+            object.castShadow = true;
+            object.receiveShadow = true;
+            object.frustumCulled = false;
+        }
+    });
+
+    // O‘lchamni moslash
+    model.updateMatrixWorld(true);
+
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+
+    if (size.y <= 0) return null;
+
+    model.scale.multiplyScalar(config.height / size.y);
+    model.updateMatrixWorld(true);
+
+    // Oyoqlar polga, markaz koordinata boshiga
+    const fitted = new THREE.Box3().setFromObject(model);
+    const center = fitted.getCenter(new THREE.Vector3());
+
+    model.position.x -= center.x;
+    model.position.z -= center.z;
+    model.position.y -= fitted.min.y;
+
+    // Yo‘nalish (qahramon -Z tomonga qarashi kerak)
+    const pivot = new THREE.Group();
+    pivot.rotation.y = config.rotationY;
+    pivot.add(model);
+
+    const character = new THREE.Group();
+    character.add(pivot);
+    character.position.set(0, 0, 10);
+
+    // Animatsiyalar
+    const clips = gltf.animations || [];
+
+    if (clips.length > 0) {
+        const mixer = new THREE.AnimationMixer(model);
+
+        const idleClip = clips.find(c => /idle|stand|breath|rest/i.test(c.name));
+        const walkClip =
+            clips.find(c => /walk/i.test(c.name)) ||
+            clips.find(c => /run|trot|gallop|swim|fly/i.test(c.name));
+
+        const actions = {};
+
+        if (idleClip) actions.idle = mixer.clipAction(idleClip);
+        if (walkClip) actions.walk = mixer.clipAction(walkClip);
+
+        if (!actions.idle && !actions.walk) {
+            actions.idle = mixer.clipAction(clips[0]);
+        }
+
+        const startAction = actions.idle || actions.walk;
+
+        startAction.play();
+
+        // Idle bo‘lmasa, yurish animatsiyasi birinchi kadrda to‘xtab turadi
+        if (!actions.idle) startAction.paused = true;
+
+        mixer.update(0);
+
+        character.userData.anim = {
+            mixer,
+            actions,
+            current: startAction
+        };
+
+        console.log(
+            type + ' animatsiyalari:',
+            clips.map(c => c.name).join(', ')
+        );
+    }
+
+    return character;
+}
+
+// ==========================================
 // 3D QAHRAMON RASMLARINI YARATISH
 // ==========================================
 
-function generateCharacterPreviews() {
+async function generateCharacterPreviews() {
     let previewRenderer = null;
     let envTexture = null;
 
@@ -1329,8 +1515,21 @@ function generateCharacterPreviews() {
         shadowFloor.receiveShadow = true;
         previewScene.add(shadowFloor);
 
-        characterTypes.forEach(type => {
-            const character = createCharacter(type.id);
+        for (const type of characterTypes) {
+            // Avval haqiqiy GLB model, bo‘lmasa oddiy qahramon
+            let character = null;
+
+            try {
+                character = await loadCharacterModel(type.id);
+            } catch (modelError) {
+                console.warn(type.name + ' modeli yuklanmadi:', modelError);
+            }
+
+            const isModel = Boolean(character);
+
+            if (!character) {
+                character = createCharacter(type.id);
+            }
 
             character.position.set(0, 0, 10);
             character.rotation.set(0, 0, 0);
@@ -1362,20 +1561,23 @@ function generateCharacterPreviews() {
 
             previewScene.remove(character);
 
-            character.traverse(object => {
-                if (object.geometry) {
-                    object.geometry.dispose();
-                }
-
-                if (object.material) {
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach(material => material.dispose());
-                    } else {
-                        object.material.dispose();
+            // Modelning geometriyasi keshda umumiy, shuning uchun uni tozalamaymiz
+            if (!isModel) {
+                character.traverse(object => {
+                    if (object.geometry) {
+                        object.geometry.dispose();
                     }
-                }
-            });
-        });
+
+                    if (object.material) {
+                        if (Array.isArray(object.material)) {
+                            object.material.forEach(material => material.dispose());
+                        } else {
+                            object.material.dispose();
+                        }
+                    }
+                });
+            }
+        }
 
         console.log('5 ta qahramon rasmi yaratildi!');
 
@@ -1763,15 +1965,35 @@ function createCharacter(type) {
 // 19. MUZEYGA KIRISH
 // ==========================================
 
-startMuseumButton.addEventListener('click', () => {
-    if (!selectedCharacter) return;
+startMuseumButton.addEventListener('click', async () => {
+    if (!selectedCharacter || startMuseumButton.dataset.loading) return;
+
+    startMuseumButton.dataset.loading = '1';
+
+    const buttonLabel = startMuseumButton.textContent;
+    startMuseumButton.textContent = 'YUKLANMOQDA...';
+    startMuseumButton.disabled = true;
+
+    let newPlayer = null;
+
+    try {
+        newPlayer = await loadCharacterModel(selectedCharacter);
+    } catch (modelError) {
+        console.warn('Model yuklanmadi:', modelError);
+    }
+
+    if (!newPlayer) {
+        newPlayer = createCharacter(selectedCharacter);
+    }
 
     if (player) {
         scene.remove(player);
     }
 
-    player = createCharacter(selectedCharacter);
-    playerParts = player.userData.parts;
+    player = newPlayer;
+    playerParts = player.userData.parts || dummyParts;
+
+    player.position.set(0, 0, 10);
 
     scene.add(player);
 
@@ -1781,6 +2003,10 @@ startMuseumButton.addEventListener('click', () => {
     camera.lookAt(0, 1.5, 10);
 
     characterSelector.style.display = 'none';
+
+    startMuseumButton.textContent = buttonLabel;
+    startMuseumButton.disabled = false;
+    delete startMuseumButton.dataset.loading;
 });
 
 
@@ -1914,6 +2140,11 @@ function updatePlayer() {
 
     if (!player || artworkViewer.style.display === 'flex') return;
 
+    // GLB modelning animatsiyasini yangilash
+    if (player.userData.anim) {
+        player.userData.anim.mixer.update(delta);
+    }
+
     // KLAVIATURA BOSHQARUVI
 
     let turn = 0;
@@ -1941,6 +2172,9 @@ function updatePlayer() {
 
     forward = THREE.MathUtils.clamp(forward, -1, 1);
     const moving = forward !== 0;
+
+    // GLB modelda idle / walk animatsiyalarini almashtirish
+    setCharacterAction(player, moving ? 'walk' : 'idle');
 
     if (moving) {
         // Qahramon qarab turgan yo'nalish
@@ -1976,9 +2210,10 @@ function updatePlayer() {
         playerParts.leftArm.rotation.x = -swing * 0.65;
         playerParts.rightArm.rotation.x = swing * 0.65;
 
+        // GLB modelda o‘z animatsiyasi bor, sakrash kerak emas
         player.position.y = Math.abs(
             Math.sin(walkTime * 2)
-        ) * 0.035;
+        ) * (player.userData.anim ? 0 : 0.035);
 
     } else {
 
