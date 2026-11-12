@@ -787,7 +787,7 @@ async function loadMuseumArtworks() {
 
         // Qurilmaga ortiqcha yuk tushirmaslik uchun anisotropy chegarasi
              const maxAnisotropy = Math.min(
-              8,
+              11,
               renderer.capabilities.getMaxAnisotropy()
          );
 
