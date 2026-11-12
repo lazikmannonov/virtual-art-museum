@@ -1121,8 +1121,6 @@ function animate(timestamp = 0) {
     renderer.render(scene, camera);
 }
 
-animate();
-
 console.log('Virtual Art Museum muvaffaqiyatli ishga tushdi!');
 console.log('Suratlarni kattalashtirish funksiyasi tayyor!');
 
@@ -2644,3 +2642,10 @@ function updatePlayer() {
 }
 
 console.log('5 ta qahramon tanlash va yurish tizimi tayyor!');
+
+// ==========================================
+// 22. MUZEY ANIMATSIYASINI ISHGA TUSHIRISH
+// ==========================================
+
+animate();
+
