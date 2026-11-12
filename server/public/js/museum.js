@@ -350,6 +350,233 @@ function createWall(width, height, x, y, z, rotationY = 0) {
     return addRoomObject(wall);
 }
 
+// ==========================================
+// PANORAMALI OYNA — TOG'LAR VA ZAMONAVIY SHAHAR
+// ==========================================
+
+function createPanoramaWindow() {
+
+    const wallZ = -roomDepth / 2 + 0.12;
+
+    const windowWidth = ROOM_WIDTH - 1;
+    const windowHeight = 7;
+    const windowY = 4;
+
+    // OYNA UCHUN MANZARA TEKSTURASI
+    const canvas = document.createElement('canvas');
+
+    canvas.width = 2048;
+    canvas.height = 1024;
+
+    const ctx = canvas.getContext('2d');
+
+    // Osmon
+    const sky = ctx.createLinearGradient(0, 0, 0, 1024);
+
+    sky.addColorStop(0, '#3995dc');
+    sky.addColorStop(0.48, '#a9d6f3');
+    sky.addColorStop(1, '#e5e9ec');
+
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, 2048, 1024);
+
+    // Bulutlar
+    for (let i = 0; i < 35; i++) {
+        const x = Math.random() * 2048;
+        const y = Math.random() * 220;
+        const r = 25 + Math.random() * 65;
+
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath();
+        ctx.ellipse(x, y, r, r * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // TOG'LAR
+    ctx.fillStyle = '#718da5';
+    ctx.beginPath();
+    ctx.moveTo(0, 490);
+
+    for (let x = 0; x <= 2048; x += 100) {
+        const y = 300 + Math.sin(x * 0.009) * 90;
+
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + 50, y - 100 - Math.random() * 100);
+    }
+
+    ctx.lineTo(2048, 550);
+    ctx.lineTo(0, 550);
+    ctx.fill();
+
+    // QORLI CHO'QQILAR
+    ctx.fillStyle = '#f4f6f8';
+
+    for (let x = 0; x < 2048; x += 180) {
+        const peakY = 230 + Math.random() * 100;
+
+        ctx.beginPath();
+        ctx.moveTo(x, peakY + 150);
+        ctx.lineTo(x + 85, peakY);
+        ctx.lineTo(x + 160, peakY + 150);
+        ctx.fill();
+    }
+
+    // TOG' ETAGI
+    ctx.fillStyle = '#668d70';
+    ctx.fillRect(0, 490, 2048, 120);
+
+    // SHAHAR ORQA FONI
+    ctx.fillStyle = '#8299a9';
+
+    for (let i = 0; i < 65; i++) {
+        const x = i * 32;
+        const w = 20 + Math.random() * 20;
+        const h = 70 + Math.random() * 150;
+
+        ctx.fillRect(x, 650 - h, w, h);
+    }
+
+    // ZAMONAVIY OS'MON O'PAR BINOLAR
+    const buildings = [
+        { x: 100, w: 95, h: 220 },
+        { x: 270, w: 110, h: 290 },
+        { x: 470, w: 85, h: 360 },
+        { x: 650, w: 130, h: 250 },
+        { x: 850, w: 115, h: 480 },
+        { x: 1100, w: 100, h: 330 },
+        { x: 1290, w: 140, h: 270 },
+        { x: 1510, w: 105, h: 390 },
+        { x: 1740, w: 130, h: 300 }
+    ];
+
+    buildings.forEach((b, i) => {
+
+        const top = 850 - b.h;
+
+        ctx.fillStyle = [
+            '#344d62',
+            '#54758c',
+            '#7895a8',
+            '#293e52'
+        ][i % 4];
+
+        ctx.fillRect(b.x, top, b.w, b.h);
+
+        // Shisha fasad
+        ctx.fillStyle = 'rgba(170,220,245,0.65)';
+
+        for (let wx = b.x + 12; wx < b.x + b.w - 8; wx += 20) {
+            for (let wy = top + 15; wy < 835; wy += 28) {
+                ctx.fillRect(wx, wy, 9, 14);
+            }
+        }
+
+        // Tom qismi
+        ctx.fillStyle = '#243a4e';
+        ctx.fillRect(b.x - 4, top, b.w + 8, 9);
+    });
+
+    // OZ MIQDORDA DARAXTLAR
+    for (let i = 0; i < 22; i++) {
+
+        const x = Math.random() * 2048;
+        const y = 830 + Math.random() * 25;
+
+        ctx.fillStyle = '#554c3d';
+        ctx.fillRect(x, y, 8, 65);
+
+        ctx.fillStyle = '#477858';
+        ctx.beginPath();
+        ctx.arc(x + 4, y - 8, 24, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // YER
+    ctx.fillStyle = '#788b91';
+    ctx.fillRect(0, 890, 2048, 134);
+
+    // TEKSTURANI THREE.JS GA O'TKAZISH
+    const texture = new THREE.CanvasTexture(canvas);
+
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    // OYNA
+    const glass = new THREE.Mesh(
+        new THREE.PlaneGeometry(windowWidth, windowHeight),
+        new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+            toneMapped: false
+        })
+    );
+
+    glass.position.set(0, windowY, wallZ);
+    addRoomObject(glass);
+
+    // QORA METALL RAMKA
+    const frameMaterial = new THREE.MeshStandardMaterial({
+        color: 0x242b31,
+        metalness: 0.8,
+        roughness: 0.25
+    });
+
+    // Yon romlar
+    for (const side of [-1, 1]) {
+
+        const frame = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, windowHeight, 0.16),
+            frameMaterial
+        );
+
+        frame.position.set(
+            side * windowWidth / 2,
+            windowY,
+            wallZ + 0.08
+        );
+
+        addRoomObject(frame);
+    }
+
+    // Yuqori va pastki romlar
+    for (const y of [
+        windowY - windowHeight / 2,
+        windowY + windowHeight / 2
+    ]) {
+
+        const frame = new THREE.Mesh(
+            new THREE.BoxGeometry(windowWidth, 0.12, 0.16),
+            frameMaterial
+        );
+
+        frame.position.set(0, y, wallZ + 0.08);
+
+        addRoomObject(frame);
+    }
+
+    // Vertikal metall bo'linmalar
+    for (let i = 1; i < 5; i++) {
+
+        const frame = new THREE.Mesh(
+            new THREE.BoxGeometry(0.055, windowHeight, 0.12),
+            frameMaterial
+        );
+
+        frame.position.set(
+            -windowWidth / 2 + (windowWidth / 5) * i,
+            windowY,
+            wallZ + 0.09
+        );
+
+        addRoomObject(frame);
+    }
+
+    console.log('Panoramali tog‘ va shahar oynasi yaratildi.');
+}
+
 function buildMuseumRoom(depth, width = 24) {
     ROOM_WIDTH = width;
 
@@ -382,11 +609,8 @@ function buildMuseumRoom(depth, width = 24) {
     floor.receiveShadow = true;
     addRoomObject(floor);
 
-    // ORQA DEVOR
-    createWall(
-        ROOM_WIDTH, 8,
-        0, 4, -roomDepth / 2
-    );
+   // ORQA DEVOR — PANORAMALI OYNA
+      createPanoramaWindow();
 
     // CHAP DEVOR
     createWall(
