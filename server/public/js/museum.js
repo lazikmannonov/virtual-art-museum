@@ -822,17 +822,29 @@ async function loadMuseumArtworks() {
                             artwork.image_url
                         );
 
-                        texture.colorSpace = THREE.SRGBColorSpace;
-
-                       texture.anisotropy = maxAnisotropy;
-
-                       texture.generateMipmaps = true;
+                       // Rasm ranglarini to‘g‘ri ko‘rsatish
+                    texture.colorSpace = THREE.SRGBColorSpace;
  
-                       texture.minFilter = THREE.LinearMipmapLinearFilter;
-                       texture.magFilter = THREE.LinearFilter;
+                  texture.anisotropy = maxAnisotropy;
 
-                        texture.needsUpdate = true;
+                  texture.generateMipmaps = true;
+                  texture.minFilter = THREE.LinearMipmapLinearFilter;
+                  texture.magFilter = THREE.LinearFilter;
 
+                  texture.needsUpdate = true;
+
+                  const originalWidth =
+               texture.image.naturalWidth || texture.image.width;
+
+                  const originalHeight =
+               texture.image.naturalHeight || texture.image.height;
+
+                  console.log('Rasm sifati:', {
+                width: originalWidth,
+               height: originalHeight,
+               anisotropy: texture.anisotropy
+            });
+                        
                         const picture = createArtwork(
                             position.x,
                             position.y,
@@ -2359,8 +2371,8 @@ startMuseumButton.addEventListener('click', async () => {
 
     cameraOrbit = 0;
     cameraPitch = 0.22;
-    camera.position.set(0, 4, 15);
-    camera.lookAt(0, 1.5, 10);
+    camera.position.set(0, 2.23, 13.71);
+    camera.lookAt(0, 1.4, 10);
 
     characterSelector.style.display = 'none';
 
@@ -2404,7 +2416,7 @@ window.addEventListener('blur', () => {
 let cameraOrbit = 0;
 let cameraPitch = 0.22;
 
-const cameraDistance = 4.6;
+const cameraDistance = 3.8;
 const playerSpeed = 3.2;
 const turnSpeed = 2.0;
 
