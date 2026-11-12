@@ -21,13 +21,19 @@ camera.lookAt(0, 2, 0);
 // 2. YUQORI SIFATLI RENDERER
 // ==========================================
 
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-const maxPixelRatio = isMobile ? 1.5 : 2;
+const isMobile =
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    window.matchMedia('(pointer: coarse)').matches;
+
+const maxPixelRatio = isMobile ? 1 : 1.5;
 
 const renderer = new THREE.WebGLRenderer({
     antialias: !isMobile,
-    powerPreference: 'high-performance',
-    alpha: false
+    powerPreference: 'default',
+    alpha: false,
+    stencil: false,
+    depth: true,
+    preserveDrawingBuffer: false
 });
 
 // Telefon va kompyuter uchun alohida aniqlik
