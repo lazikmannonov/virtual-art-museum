@@ -2370,7 +2370,7 @@ startMuseumButton.addEventListener('click', async () => {
     scene.add(player);
 
     cameraOrbit = 0;
-    cameraPitch = 0.22;
+    cameraPitch = 0.25;
     camera.position.set(0, 2.23, 13.71);
     camera.lookAt(0, 1.4, 10);
 
@@ -2414,7 +2414,7 @@ window.addEventListener('blur', () => {
 // Kamera sozlamalari
 // Sichqoncha aylanishi qahramon burilishidan alohida
 let cameraOrbit = 0;
-let cameraPitch = 0.50;
+let cameraPitch = 0.55;
 
 const cameraDistance = 3.0;
 const playerSpeed = 3.2;
@@ -2643,13 +2643,13 @@ function updatePlayer() {
 
     cameraTarget.set(
         player.position.x,
-        player.position.y + 1.4,
+        player.position.y + 1.8,
         player.position.z
     );
 
     cameraPosition.set(
         player.position.x + Math.sin(yawNow) * horizontalDistance,
-        player.position.y + 1.4 + verticalDistance,
+        player.position.y + 1.8 + verticalDistance,
         player.position.z + Math.cos(yawNow) * horizontalDistance
     );
 
