@@ -2414,9 +2414,9 @@ window.addEventListener('blur', () => {
 // Kamera sozlamalari
 // Sichqoncha aylanishi qahramon burilishidan alohida
 let cameraOrbit = 0;
-let cameraPitch = 0.55;
+let cameraPitch = 0.60;
 
-const cameraDistance = 3.0;
+const cameraDistance = 3.2;
 const playerSpeed = 3.2;
 const turnSpeed = 2.0;
 
