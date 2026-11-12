@@ -1100,6 +1100,8 @@ let lastFrameTime = 0;
 
 const mobileFrameInterval = 1000 / 30;
 
+const playerClock = new THREE.Clock();
+
 function animate(timestamp = 0) {
 
     requestAnimationFrame(animate);
@@ -2399,8 +2401,6 @@ let cameraPitch = 0.22;
 const cameraDistance = 5.5;
 const playerSpeed = 3.2;
 const turnSpeed = 2.0;
-
-const playerClock = new THREE.Clock();
 
 let walkTime = 0;
 
