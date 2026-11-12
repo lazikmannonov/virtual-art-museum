@@ -585,11 +585,11 @@ function createArtwork(
             pictureWidth,
             pictureHeight
         ),
-        new THREE.MeshStandardMaterial({
-            map: texture,
-            roughness: 0.8,
-            side: THREE.DoubleSide
-        })
+       new THREE.MeshBasicMaterial({
+             map: texture,
+             side: THREE.DoubleSide,
+             toneMapped: false
+         })
     );
 
     picture.position.z = 0.12;
