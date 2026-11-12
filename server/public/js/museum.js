@@ -356,8 +356,8 @@ function createWall(width, height, x, y, z, rotationY = 0) {
 
 function createPanoramaWindow() {
 
-    const wallZ = -roomDepth / 2 + 0.12;
-
+const wallZ = roomDepth / 2 - 0.12;
+    
     const windowWidth = ROOM_WIDTH - 1;
     const windowHeight = 7;
     const windowY = 4;
@@ -535,7 +535,7 @@ function createPanoramaWindow() {
         frame.position.set(
             side * windowWidth / 2,
             windowY,
-            wallZ + 0.08
+            wallZ - 0.08
         );
 
         addRoomObject(frame);
@@ -552,7 +552,7 @@ function createPanoramaWindow() {
             frameMaterial
         );
 
-        frame.position.set(0, y, wallZ + 0.08);
+        frame.position.set(0, y, wallZ - 0.08);
 
         addRoomObject(frame);
     }
@@ -568,7 +568,7 @@ function createPanoramaWindow() {
         frame.position.set(
             -windowWidth / 2 + (windowWidth / 5) * i,
             windowY,
-            wallZ + 0.09
+            wallZ - 0.09
         );
 
         addRoomObject(frame);
@@ -609,8 +609,11 @@ function buildMuseumRoom(depth, width = 24) {
     floor.receiveShadow = true;
     addRoomObject(floor);
 
-   // ORQA DEVOR — PANORAMALI OYNA
-      createPanoramaWindow();
+  // ORQA DEVOR
+createWall(
+    ROOM_WIDTH, 8,
+    0, 4, -roomDepth / 2
+);
 
     // CHAP DEVOR
     createWall(
@@ -626,11 +629,8 @@ function buildMuseumRoom(depth, width = 24) {
         Math.PI / 2
     );
 
-    // OLD DEVOR
-    createWall(
-        ROOM_WIDTH, 8,
-        0, 4, roomDepth / 2
-    );
+    // OLD DEVOR — PANORAMALI OYNA
+     createPanoramaWindow();
 
     // SHIFT
     const ceiling = new THREE.Mesh(
