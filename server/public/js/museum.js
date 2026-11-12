@@ -39,7 +39,12 @@ renderer.setPixelRatio(
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 
-renderer.shadowMap.enabled = false;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -156,24 +161,29 @@ joystickBase.addEventListener('pointercancel', event => {
 });
 
 // ==========================================
-// 3. MATERIALLAR
+// 3. IVORY PREMIUM MATERIALLAR
 // ==========================================
 
+// PREMIUM MARMAR POL
 const floorMaterial = new THREE.MeshStandardMaterial({
-    color: 0xe8e5dc,
-    roughness: 0.32
+    color: 0xddd8cc,
+    roughness: 0.24,
+    metalness: 0.04
 });
 
+// IVORY DEVORLAR
 const wallMaterial = new THREE.MeshStandardMaterial({
-    color: 0xf8f6f0,
-    roughness: 0.85
+    color: 0xfaf9f5,
+    roughness: 0.88,
+    metalness: 0
 });
 
+// OQ PREMIUM SHIFT
 const ceilingMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.9
+    color: 0xf5f3ed,
+    roughness: 0.92,
+    metalness: 0
 });
-
 
 // ==========================================
 // 4–7. AVTOMATIK O'LCHAMLI MUZEY ZALI
@@ -279,7 +289,7 @@ function buildMuseumRoom(depth, width = 24) {
 
             const light = new THREE.SpotLight(
                 0xffffff,
-                55,
+                18,
                 20,
                 Math.PI / 5,
                 0.5,
@@ -302,25 +312,41 @@ function buildMuseumRoom(depth, width = 24) {
 // Dastlabki zal
 buildMuseumRoom(32);
 
-// UMUMIY YORITISH
+// ==========================================
+// IVORY PREMIUM YORITISH
+// ==========================================
+
+// TABIIY UMUMIY YORUG‘LIK
 const ambientLight = new THREE.HemisphereLight(
     0xffffff,
-    0xc9c2b5,
-    2
+    0xd4cbbb,
+    1.15
 );
 
 scene.add(ambientLight);
 
+// ASOSIY YUMSHOQ YORUG‘LIK
 const mainLight = new THREE.DirectionalLight(
-    0xffffff,
-    2.2
+    0xfff8eb,
+    1.8
 );
 
 mainLight.position.set(-5, 12, 8);
-mainLight.castShadow = false;
+
+mainLight.castShadow = true;
+
+mainLight.shadow.mapSize.width = 2048;
+mainLight.shadow.mapSize.height = 2048;
+
+mainLight.shadow.camera.left = -25;
+mainLight.shadow.camera.right = 25;
+mainLight.shadow.camera.top = 25;
+mainLight.shadow.camera.bottom = -25;
+
+mainLight.shadow.bias = -0.0002;
+mainLight.shadow.normalBias = 0.025;
 
 scene.add(mainLight);
-
 
 // ==========================================
 // 8. HAQIQIY MUZEY RASMLARI
@@ -435,7 +461,7 @@ function createArtwork(
     // Surat uchun alohida yoritish
     const spotlight = new THREE.SpotLight(
         0xffffff,
-        22,
+        10,
         10,
         Math.PI / 5,
         0.65,
