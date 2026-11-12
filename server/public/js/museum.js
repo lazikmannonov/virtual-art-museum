@@ -40,7 +40,7 @@ renderer.setPixelRatio(
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1196,17 +1196,14 @@ characterTypes.forEach(character => {
     characterOptions.appendChild(button);
 });
 
-
 // ==========================================
 // 3D QAHRAMON RASMLARINI YARATISH
 // ==========================================
 
 function generateCharacterPreviews() {
-
-    let previewRenderer;
+    let previewRenderer = null;
 
     try {
-
         previewRenderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: false,
@@ -1215,11 +1212,9 @@ function generateCharacterPreviews() {
 
         previewRenderer.setSize(300, 240);
         previewRenderer.setPixelRatio(1);
-
         previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
         previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
         previewRenderer.toneMappingExposure = 1.05;
-
         previewRenderer.setClearColor(0xf0ede5, 1);
 
         const previewScene = new THREE.Scene();
@@ -1232,30 +1227,29 @@ function generateCharacterPreviews() {
             100
         );
 
-        previewCamera.position.set(3, 2.8, 4.5);
-        previewCamera.lookAt(0, 1.15, 10);
+        // Qahramonning old tomonidan qarash
+        previewCamera.position.set(0, 2.2, 5);
+        previewCamera.lookAt(0, 1.2, 10);
 
-        const light = new THREE.HemisphereLight(
+        const ambientLight = new THREE.HemisphereLight(
             0xffffff,
             0xd4cbbb,
-            2
+            2.2
         );
-
-        previewScene.add(light);
+        previewScene.add(ambientLight);
 
         const mainLight = new THREE.DirectionalLight(
             0xffffff,
             2.5
         );
-
         mainLight.position.set(-3, 7, 5);
         previewScene.add(mainLight);
 
         characterTypes.forEach(type => {
-
             const character = createCharacter(type.id);
 
             character.position.set(0, 0, 10);
+            character.rotation.set(0, 0, 0);
 
             previewScene.add(character);
 
@@ -1264,22 +1258,31 @@ function generateCharacterPreviews() {
                 previewCamera
             );
 
-            const card = Array.from(
-                characterOptions.children
-            ).find(item =>
+            const imageData =
+                previewRenderer.domElement.toDataURL('image/png');
+
+            const card = Array.from(characterOptions.children).find(item =>
                 item.querySelector('.character-name')
-                    .textContent === type.name
+                    ?.textContent.trim() === type.name
             );
 
             if (card) {
-                card.querySelector('.character-preview').src =
-                    previewRenderer.domElement.toDataURL('image/png');
+                const img = card.querySelector('.character-preview');
+
+                img.src = imageData;
+
+                img.onload = () => {
+                    console.log(type.name + ' rasmi yuklandi!');
+                };
+
+                img.onerror = () => {
+                    console.error(type.name + ' rasmi ko‘rsatilmadi!');
+                };
             }
 
             previewScene.remove(character);
 
             character.traverse(object => {
-
                 if (object.geometry) {
                     object.geometry.dispose();
                 }
@@ -1296,8 +1299,9 @@ function generateCharacterPreviews() {
 
         previewRenderer.dispose();
 
-    } catch (error) {
+        console.log('5 ta qahramon rasmi yaratildi!');
 
+    } catch (error) {
         console.error(
             'Qahramon rasmlarini yaratishda xatolik:',
             error
