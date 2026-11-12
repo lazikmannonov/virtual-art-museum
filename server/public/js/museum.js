@@ -22,6 +22,7 @@ camera.lookAt(0, 2, 0);
 // ==========================================
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const maxPixelRatio = isMobile ? 1.5 : 2;
 
 const renderer = new THREE.WebGLRenderer({
     antialias: !isMobile,
@@ -31,10 +32,7 @@ const renderer = new THREE.WebGLRenderer({
 
 // Telefon va kompyuter uchun alohida aniqlik
 renderer.setPixelRatio(
-    Math.min(
-        window.devicePixelRatio || 1,
-        isMobile ? 1.5 : 2
-    )
+    Math.min(window.devicePixelRatio || 1, maxPixelRatio)
 );
 
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -44,13 +42,66 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
-
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 
 document.getElementById('museum').appendChild(renderer.domElement);
+
+// ==========================================
+// STUDIYA MUHITI (aks-sado va yumshoq yorug‘lik)
+// Qo‘shimcha import kerak emas
+// ==========================================
+
+function createStudioEnvironment(targetRenderer) {
+    const envScene = new THREE.Scene();
+
+    // Xona: ichidan ko‘rinadigan iliq kulrang quti
+    const room = new THREE.Mesh(
+        new THREE.BoxGeometry(24, 14, 24),
+        new THREE.MeshBasicMaterial({
+            color: new THREE.Color(0xb9b3a6),
+            side: THREE.BackSide
+        })
+    );
+    room.position.y = 7;
+    envScene.add(room);
+
+    // Yorug‘ panellar
+    function lightPanel(w, h, x, y, z, intensity) {
+        const material = new THREE.MeshBasicMaterial({
+            side: THREE.DoubleSide
+        });
+        material.color.setScalar(intensity);
+
+        const mesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(w, h),
+            material
+        );
+
+        mesh.position.set(x, y, z);
+        mesh.lookAt(0, 3, 0);
+        envScene.add(mesh);
+    }
+
+    lightPanel(12, 12, 0, 13.5, 0, 9);   // tepadan katta yorug‘lik
+    lightPanel(6, 8, -10, 6, 4, 6);      // chap yon
+    lightPanel(6, 8, 10, 6, 4, 4);       // o‘ng yon
+    lightPanel(10, 5, 0, 5, -11, 3);     // orqa yorug‘lik (kontur)
+
+    const pmrem = new THREE.PMREMGenerator(targetRenderer);
+    const target = pmrem.fromScene(envScene, 0.04);
+    pmrem.dispose();
+
+    envScene.traverse(object => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) object.material.dispose();
+    });
+
+    return target.texture;
+}
+
+// Asosiy sahna uchun muhit
+scene.environment = createStudioEnvironment(renderer);
+scene.environmentIntensity = 0.35;
 
 // ==========================================
 // MOBIL JOYSTICK BOSHQARUVI
@@ -216,6 +267,7 @@ function createWall(width, height, x, y, z, rotationY = 0) {
 
 function buildMuseumRoom(depth, width = 24) {
     ROOM_WIDTH = width;
+
     // Eski pol, devor, shift va chiroqlarni olib tashlash
     roomObjects.forEach(object => {
         scene.remove(object);
@@ -317,10 +369,11 @@ buildMuseumRoom(32);
 // ==========================================
 
 // TABIIY UMUMIY YORUG‘LIK
+// (muhit yorug‘ligi qo‘shilgani uchun 1.15 dan pasaytirildi)
 const ambientLight = new THREE.HemisphereLight(
     0xffffff,
     0xd4cbbb,
-    1.15
+    0.85
 );
 
 scene.add(ambientLight);
@@ -523,15 +576,15 @@ async function loadMuseumArtworks() {
         // Barcha rasmlarni joylashtirish
         const artworksToPlace = artworks;
 
-// Har bir devorga tushadigan rasmlar soni
+        // Har bir devorga tushadigan rasmlar soni
         const rearCount = Math.ceil(artworksToPlace.length / 3);
         const sideCount = Math.ceil(artworksToPlace.length / 3);
 
-// Rasmlar uchun zal o‘lchamini hisoblash
+        // Rasmlar uchun zal o‘lchamini hisoblash
         const requiredWidth = Math.max(24, 8 + rearCount * 3.2);
         const requiredDepth = Math.max(32, 8 + sideCount * 3.2);
 
-// Yangi o‘lchamdagi zalni qurish
+        // Yangi o‘lchamdagi zalni qurish
         buildMuseumRoom(requiredDepth, requiredWidth);
 
         console.log('Zal o‘lchami:', {
@@ -606,6 +659,7 @@ async function loadMuseumArtworks() {
                 } else {
                     // O‘NG DEVOR
                     const span = roomDepth - 6;
+
                     const z = count === 1
                         ? 0
                         : -span / 2 +
@@ -636,13 +690,13 @@ async function loadMuseumArtworks() {
 
         const textureLoader = new THREE.TextureLoader();
 
-// Qurilmaga ortiqcha yuk tushirmaslik uchun anisotropy chegarasi
+        // Qurilmaga ortiqcha yuk tushirmaslik uchun anisotropy chegarasi
         const maxAnisotropy = Math.min(
             4,
             renderer.capabilities.getMaxAnisotropy()
         );
 
-// Rasmlarni 3 tadan yuklash
+        // Rasmlarni 3 tadan yuklash
         const batchSize = 3;
 
         for (
@@ -708,6 +762,7 @@ async function loadMuseumArtworks() {
                 `Yuklandi: ${Math.min(start + batch.length, artworksToPlace.length)} / ${artworksToPlace.length}`
             );
         }
+
         console.log(
             `${artworksToPlace.length} ta rasm joylashtirishga tayyor.`
         );
@@ -855,6 +910,7 @@ window.addEventListener('keydown', (event) => {
         closeArtwork();
     }
 });
+
 // Muzey rasmlarini bazadan yuklash
 loadMuseumArtworks();
 
@@ -928,7 +984,7 @@ window.addEventListener('resize', () => {
     );
 
     renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 1.5)
+        Math.min(window.devicePixelRatio || 1, maxPixelRatio)
     );
 });
 
@@ -1202,23 +1258,32 @@ characterTypes.forEach(character => {
 
 function generateCharacterPreviews() {
     let previewRenderer = null;
+    let envTexture = null;
 
     try {
         previewRenderer = new THREE.WebGLRenderer({
             antialias: true,
-            alpha: false,
+            alpha: true,                  // shaffof fon
             preserveDrawingBuffer: true
         });
 
+        // 300x240 ko‘rinish, haqiqiy piksel 600x480 (ravshanroq)
+        previewRenderer.setPixelRatio(2);
         previewRenderer.setSize(300, 240);
-        previewRenderer.setPixelRatio(1);
         previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
         previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-        previewRenderer.toneMappingExposure = 1.05;
-        previewRenderer.setClearColor(0xf0ede5, 1);
+        previewRenderer.toneMappingExposure = 1.1;
+        previewRenderer.setClearColor(0x000000, 0);
+
+        previewRenderer.shadowMap.enabled = true;
+        previewRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
         const previewScene = new THREE.Scene();
-        previewScene.background = new THREE.Color(0xf0ede5);
+        previewScene.background = null;
+
+        envTexture = createStudioEnvironment(previewRenderer);
+        previewScene.environment = envTexture;
+        previewScene.environmentIntensity = 0.9;
 
         const previewCamera = new THREE.PerspectiveCamera(
             35,
@@ -1231,19 +1296,38 @@ function generateCharacterPreviews() {
         previewCamera.position.set(0, 2.2, 5);
         previewCamera.lookAt(0, 1.2, 10);
 
-        const ambientLight = new THREE.HemisphereLight(
-            0xffffff,
-            0xd4cbbb,
-            2.2
+        // Yumshoq umumiy yorug‘lik
+        previewScene.add(
+            new THREE.HemisphereLight(0xffffff, 0xd4cbbb, 0.6)
         );
-        previewScene.add(ambientLight);
 
-        const mainLight = new THREE.DirectionalLight(
-            0xffffff,
-            2.5
+        // Asosiy yorug‘lik va yumshoq soya
+        const keyLight = new THREE.DirectionalLight(0xfff4e2, 2.2);
+        keyLight.position.set(-3, 7, 5);
+        keyLight.target.position.set(0, 1, 10);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.set(1024, 1024);
+        keyLight.shadow.radius = 6;
+        keyLight.shadow.bias = -0.0003;
+        keyLight.shadow.normalBias = 0.02;
+        keyLight.shadow.camera.left = -4;
+        keyLight.shadow.camera.right = 4;
+        keyLight.shadow.camera.top = 4;
+        keyLight.shadow.camera.bottom = -4;
+        keyLight.shadow.camera.near = 0.5;
+        keyLight.shadow.camera.far = 30;
+        previewScene.add(keyLight);
+        previewScene.add(keyLight.target);
+
+        // Qahramon ostidagi yumshoq soya
+        const shadowFloor = new THREE.Mesh(
+            new THREE.PlaneGeometry(10, 10),
+            new THREE.ShadowMaterial({ opacity: 0.22 })
         );
-        mainLight.position.set(-3, 7, 5);
-        previewScene.add(mainLight);
+        shadowFloor.rotation.x = -Math.PI / 2;
+        shadowFloor.position.set(0, 0, 10);
+        shadowFloor.receiveShadow = true;
+        previewScene.add(shadowFloor);
 
         characterTypes.forEach(type => {
             const character = createCharacter(type.id);
@@ -1269,15 +1353,11 @@ function generateCharacterPreviews() {
             if (card) {
                 const img = card.querySelector('.character-preview');
 
-                img.src = imageData;
-
-                img.onload = () => {
-                    console.log(type.name + ' rasmi yuklandi!');
-                };
-
                 img.onerror = () => {
                     console.error(type.name + ' rasmi ko‘rsatilmadi!');
                 };
+
+                img.src = imageData;
             }
 
             previewScene.remove(character);
@@ -1297,8 +1377,6 @@ function generateCharacterPreviews() {
             });
         });
 
-        previewRenderer.dispose();
-
         console.log('5 ta qahramon rasmi yaratildi!');
 
     } catch (error) {
@@ -1306,10 +1384,9 @@ function generateCharacterPreviews() {
             'Qahramon rasmlarini yaratishda xatolik:',
             error
         );
-
-        if (previewRenderer) {
-            previewRenderer.dispose();
-        }
+    } finally {
+        if (envTexture) envTexture.dispose();
+        if (previewRenderer) previewRenderer.dispose();
     }
 }
 
@@ -1326,22 +1403,79 @@ let playerParts = null;
 function createCharacter(type) {
     const character = new THREE.Group();
 
+    // Mo‘yna / baxmal ko‘rinishli material
+    function fur(color, roughness = 0.9) {
+        const base = new THREE.Color(color);
+
+        return new THREE.MeshPhysicalMaterial({
+            color: base,
+            roughness,
+            sheen: 1,
+            sheenRoughness: 0.45,
+            sheenColor: base.clone().lerp(new THREE.Color(0xffffff), 0.45)
+        });
+    }
+
+    // Yaltiroq "plastik/silikon" material
+    function glossy(color, roughness = 0.45, clearcoat = 0.4) {
+        return new THREE.MeshPhysicalMaterial({
+            color,
+            roughness,
+            clearcoat,
+            clearcoatRoughness: 0.35
+        });
+    }
+
     // PREMIUM MATERIALLAR
     const mat = {
-        dinosaur: new THREE.MeshStandardMaterial({ color: 0x70ad65, roughness: 0.72 }),
-        fox: new THREE.MeshStandardMaterial({ color: 0xe98232, roughness: 0.72 }),
-        penguin: new THREE.MeshStandardMaterial({ color: 0x293b50, roughness: 0.75 }),
-        robot: new THREE.MeshStandardMaterial({ color: 0xdce5ed, metalness: 0.45, roughness: 0.3 }),
-        bear: new THREE.MeshStandardMaterial({ color: 0x9b6542, roughness: 0.85 }),
+        dinosaur: glossy(0x70ad65, 0.5, 0.35),
+        fox: fur(0xe98232),
+        penguin: new THREE.MeshPhysicalMaterial({
+            color: 0x293b50,
+            roughness: 0.55,
+            clearcoat: 0.3,
+            clearcoatRoughness: 0.4,
+            sheen: 0.6,
+            sheenRoughness: 0.5,
+            sheenColor: new THREE.Color(0x6d86a3)
+        }),
+        robot: new THREE.MeshPhysicalMaterial({
+            color: 0xdce5ed,
+            metalness: 0.9,
+            roughness: 0.22,
+            clearcoat: 1,
+            clearcoatRoughness: 0.08
+        }),
+        bear: fur(0x9b6542, 0.92),
 
-        cream: new THREE.MeshStandardMaterial({ color: 0xffe9c8, roughness: 0.85 }),
-        white: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }),
-        black: new THREE.MeshStandardMaterial({ color: 0x18202b, roughness: 0.65 }),
-        orange: new THREE.MeshStandardMaterial({ color: 0xffa52e, roughness: 0.65 }),
-        pink: new THREE.MeshStandardMaterial({ color: 0xf5a6a6, roughness: 0.8 }),
-        blue: new THREE.MeshStandardMaterial({ color: 0x42b9f5, emissive: 0x12628c, emissiveIntensity: 0.7 }),
-        red: new THREE.MeshStandardMaterial({ color: 0xd94d54, roughness: 0.65 }),
-        dark: new THREE.MeshStandardMaterial({ color: 0x30343a, roughness: 0.7 })
+        cream: fur(0xffe9c8),
+        // Ko‘z oqi: yaltiroq
+        white: new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            roughness: 0.35,
+            clearcoat: 1,
+            clearcoatRoughness: 0.05
+        }),
+        // Qorachiq: "ho‘l" ko‘rinadi
+        black: new THREE.MeshPhysicalMaterial({
+            color: 0x0b0e14,
+            roughness: 0.08,
+            clearcoat: 1,
+            clearcoatRoughness: 0.02
+        }),
+        orange: glossy(0xffa52e, 0.45, 0.4),
+        pink: fur(0xf5a6a6),
+        blue: new THREE.MeshStandardMaterial({
+            color: 0x42b9f5,
+            emissive: 0x12628c,
+            emissiveIntensity: 1.2
+        }),
+        red: glossy(0xd94d54, 0.3, 1),
+        dark: new THREE.MeshStandardMaterial({
+            color: 0x30343a,
+            roughness: 0.6,
+            metalness: 0.3
+        })
     };
 
     const main = mat[type];
@@ -1354,7 +1488,7 @@ function createCharacter(type) {
     // SHAR YORDAMIDA TANANING YUMALOQ QISMLARI
     function sphere(parent, x, y, z, sx, sy, sz, material) {
         const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(1, 32, 24),
+            new THREE.SphereGeometry(1, 48, 32),
             material
         );
 
@@ -1368,7 +1502,7 @@ function createCharacter(type) {
     }
 
     // KUB SHAKLLAR
-    function box(parent, x, y, z, sx, sy, sz, material, radius = 0) {
+    function box(parent, x, y, z, sx, sy, sz, material) {
         const mesh = new THREE.Mesh(
             new THREE.BoxGeometry(sx, sy, sz),
             material
@@ -1385,7 +1519,7 @@ function createCharacter(type) {
     // KONUS SHAKLLAR
     function cone(parent, x, y, z, radius, height, material) {
         const mesh = new THREE.Mesh(
-            new THREE.ConeGeometry(radius, height, 24),
+            new THREE.ConeGeometry(radius, height, 32),
             material
         );
 
@@ -1410,7 +1544,7 @@ function createCharacter(type) {
         }
     }
 
-    // TABASSUMGA O‘XSHASH YUZ DETALI
+    // YONOQLAR
     function cheeks(y, z, material = mat.cream) {
         sphere(character, -0.22, y, z, 0.09, 0.055, 0.035, material);
         sphere(character, 0.22, y, z, 0.09, 0.055, 0.035, material);
@@ -1481,7 +1615,7 @@ function createCharacter(type) {
             sphere(character, 0.34, 2.28, -0.14, 0.09, 0.10, 0.035, mat.pink);
 
             sphere(character, 0, 1.87, -0.39, 0.24, 0.17, 0.12, mat.cream);
-            sphere(character, 0, 1.93, -0.50, 0.065, 0.05, 0.035, mat.dark);
+            sphere(character, 0, 1.93, -0.50, 0.065, 0.05, 0.035, mat.black);
             cheeks(1.91, -0.40, mat.pink);
         }
 
@@ -1493,7 +1627,7 @@ function createCharacter(type) {
             sphere(character, 0.27, 2.39, -0.12, 0.08, 0.19, 0.035, mat.cream);
 
             sphere(character, 0, 1.88, -0.39, 0.24, 0.16, 0.13, mat.cream);
-            sphere(character, 0, 1.94, -0.51, 0.06, 0.045, 0.035, mat.dark);
+            sphere(character, 0, 1.94, -0.51, 0.06, 0.045, 0.035, mat.black);
             cheeks(1.91, -0.40, mat.pink);
         }
 
@@ -1556,10 +1690,8 @@ function createCharacter(type) {
     rightArm.position.set(0.43, 1.48, 0);
     character.add(rightArm);
 
-    const armMaterial = type === 'penguin' ? main : main;
-
-    sphere(leftArm, 0, -0.22, 0, 0.15, 0.35, 0.16, armMaterial);
-    sphere(rightArm, 0, -0.22, 0, 0.15, 0.35, 0.16, armMaterial);
+    sphere(leftArm, 0, -0.22, 0, 0.15, 0.35, 0.16, main);
+    sphere(rightArm, 0, -0.22, 0, 0.15, 0.35, 0.16, main);
 
     sphere(leftArm, 0, -0.46, -0.015, 0.14, 0.13, 0.14,
         type === 'robot' ? mat.robot : main);
@@ -1613,7 +1745,7 @@ function createCharacter(type) {
         sphere(character, 0.20, 0.49, 0, 0.16, 0.13, 0.16, mat.dark);
     }
 
-    // QAHRA MON JOYLASHUVI
+    // QAHRAMON JOYLASHUVI
     character.position.set(0, 0, 10);
 
     // YURISH ANIMATSIYASI UCHUN QISMLAR
@@ -1739,7 +1871,7 @@ renderer.domElement.addEventListener('pointermove', event => {
     // Qahramonning rotation qiymati o'zgartirilmaydi
     cameraOrbit -= deltaX * 0.002;
 
-   cameraPitch += deltaY * 0.002;
+    cameraPitch += deltaY * 0.002;
 
     cameraPitch = THREE.MathUtils.clamp(
         cameraPitch,
@@ -1789,8 +1921,11 @@ function updatePlayer() {
     if (pressedKeys['a'] || pressedKeys['arrowleft']) turn += 1;
     if (pressedKeys['d'] || pressedKeys['arrowright']) turn -= 1;
 
-// Joystick orqali burilish
+    // Joystick orqali burilish
     turn -= joystickX;
+
+    // Harakat qiymatini -1 va 1 oralig‘ida saqlash
+    turn = THREE.MathUtils.clamp(turn, -1, 1);
 
     // Qahramon joyida buriladi
     player.rotation.y += turn * turnSpeed * delta;
@@ -1801,12 +1936,10 @@ function updatePlayer() {
     if (pressedKeys['w'] || pressedKeys['arrowup']) forward += 1;
     if (pressedKeys['s'] || pressedKeys['arrowdown']) forward -= 1;
 
-// Joystick orqali yurish
+    // Joystick orqali yurish
     forward -= joystickY;
 
-// Harakat qiymatini -1 va 1 oralig‘ida saqlash
     forward = THREE.MathUtils.clamp(forward, -1, 1);
-    turn = THREE.MathUtils.clamp(turn, -1, 1);
     const moving = forward !== 0;
 
     if (moving) {
@@ -1871,7 +2004,7 @@ function updatePlayer() {
         );
     }
 
-// KLAVIATURA YOKI JOYSTICK ISHLAGANDA KAMERA QAYTADI
+    // KLAVIATURA YOKI JOYSTICK ISHLAGANDA KAMERA QAYTADI
 
     const keyboardActive =
         pressedKeys['w'] ||
@@ -1894,7 +2027,7 @@ function updatePlayer() {
         );
     }
 
-// Kamera qahramon orqasidan ergashadi
+    // Kamera qahramon orqasidan ergashadi
     const yawNow = player.rotation.y + cameraOrbit;
 
     const horizontalDistance =
@@ -1924,7 +2057,7 @@ function updatePlayer() {
 }
 
 // ==========================================
-// 21. QAHRAMON ANIMATSIYASI
+// 22. QAHRAMON ANIMATSIYASI
 // ==========================================
 
 function animatePlayer() {
