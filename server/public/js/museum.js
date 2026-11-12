@@ -25,10 +25,10 @@ const isMobile =
     /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     window.matchMedia('(pointer: coarse)').matches;
 
-const maxPixelRatio = isMobile ? 0.85 : 1.5;
+const maxPixelRatio = isMobile ? 1.25 : 1.5;
 
 const renderer = new THREE.WebGLRenderer({
-    antialias: !isMobile,
+    antialias: true,
     powerPreference: 'default',
     alpha: false,
     stencil: false,
