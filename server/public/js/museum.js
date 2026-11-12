@@ -361,6 +361,11 @@ function createPanoramaWindow() {
     const windowHeight = 7;
     const windowY = 4;
 
+    // ---------- Qurilma ----------
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 900;
+    const Q = isMobile ? 0.5 : 1;        // haqiqiy tekstura sifati
+    const STEP = isMobile ? 3 : 1;       // tog' ustunlari qadami
+
     // ---------- Deterministik random ----------
     let seed = 20261112;
     const rnd = () => {
@@ -370,13 +375,15 @@ function createPanoramaWindow() {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 
-    const W = 4096, H = 2048;
+    // ---------- Canvas ----------
+    const W = 4096, H = 2048;            // mantiqiy o'lcham
     const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
+    canvas.width = W * Q;
+    canvas.height = H * Q;
     const ctx = canvas.getContext('2d');
+    ctx.scale(Q, Q);                     // qolgan kod o'zgarmaydi
 
-    const HORIZON = 1450;          // shahar/tog' quyi chizig'i
+    const HORIZON = 1450;
     const SUN = { x: 1250, y: 380 };
 
     // ---------- OSMON ----------
@@ -399,7 +406,8 @@ function createPanoramaWindow() {
 
     // ---------- YUMSHOQ BULUTLAR ----------
     function cloud(cx, cy, size, alpha) {
-        for (let i = 0; i < 26; i++) {
+        const puffs = isMobile ? 14 : 26;
+        for (let i = 0; i < puffs; i++) {
             const ox = (rnd() - 0.5) * size * 2.2;
             const oy = (rnd() - 0.5) * size * 0.35;
             const r = size * (0.25 + rnd() * 0.45);
@@ -423,7 +431,7 @@ function createPanoramaWindow() {
             let y = 0;
             y += Math.sin(x * 0.0018 + p[0] + seedOffset) * 1.0;
             y += Math.sin(x * 0.0043 + p[1]) * 0.55;
-            y += Math.abs(Math.sin(x * 0.0091 + p[2])) * 0.6;   // o'tkir cho'qqilar
+            y += Math.abs(Math.sin(x * 0.0091 + p[2])) * 0.6;
             y += Math.sin(x * 0.019 + p[3]) * 0.22;
             y += Math.sin(x * 0.047 + p[4]) * 0.08;
             arr[x] = base - y * amp;
@@ -451,8 +459,8 @@ function createPanoramaWindow() {
         ctx.clip();
 
         // Quyosh yorug'ligi: chap yon bag'ir yorug', o'ng yon bag'ir soya
-        for (let x = 0; x < W; x++) {
-            const slope = ys[x + 1] - ys[x];
+        for (let x = 0; x < W; x += STEP) {
+            const slope = (ys[Math.min(x + STEP, W)] - ys[x]) / STEP;
             const s = Math.min(Math.abs(slope) * 0.35, 0.35);
             const len = 260 + Math.abs(slope) * 60;
             const g = ctx.createLinearGradient(0, ys[x], 0, ys[x] + len);
@@ -460,22 +468,22 @@ function createPanoramaWindow() {
             g.addColorStop(0, `rgba(${c},${s})`);
             g.addColorStop(1, `rgba(${c},0)`);
             ctx.fillStyle = g;
-            ctx.fillRect(x, ys[x], 1.2, len);
+            ctx.fillRect(x, ys[x], 1.2 * STEP, len);
         }
 
         // Qor qalpoqlari
         if (snow) {
             const snowLine = base - amp * snow;
-            for (let x = 0; x < W; x++) {
+            for (let x = 0; x < W; x += STEP) {
                 if (ys[x] < snowLine) {
                     const depth = (snowLine - ys[x]) * (0.9 + 0.5 * Math.sin(x * 0.13) * Math.sin(x * 0.031));
+                    const lit = ys[Math.min(x + STEP, W)] - ys[x] > 0;
                     const g = ctx.createLinearGradient(0, ys[x], 0, ys[x] + depth);
-                    const lit = ys[x + 1] - ys[x] > 0;
                     g.addColorStop(0, lit ? '#ffffff' : '#d4dff0');
                     g.addColorStop(0.7, lit ? '#eef4fb' : '#b9c8de');
                     g.addColorStop(1, 'rgba(238,244,251,0)');
                     ctx.fillStyle = g;
-                    ctx.fillRect(x, ys[x], 1.4, depth);
+                    ctx.fillRect(x, ys[x], 1.4 * STEP, depth);
                 }
             }
         }
@@ -490,9 +498,9 @@ function createPanoramaWindow() {
         ctx.restore();
     }
 
-    mountainLayer({ base: 1000, amp: 330, color: ['#8fa9c6', '#b7cbe0'], haze: '214,230,243', snow: 1.0, offset: 1, bottom: HORIZON });
+    mountainLayer({ base: 1000, amp: 330, color: ['#8fa9c6', '#b7cbe0'], haze: '214,230,243', snow: 1.0,  offset: 1, bottom: HORIZON });
     mountainLayer({ base: 1120, amp: 250, color: ['#5f7f9f', '#8aa6bf'], haze: '200,220,236', snow: 1.25, offset: 3, bottom: HORIZON });
-    mountainLayer({ base: 1230, amp: 170, color: ['#3f6a58', '#6f9484'], haze: '185,208,214', snow: 0, offset: 5, bottom: HORIZON });
+    mountainLayer({ base: 1230, amp: 170, color: ['#3f6a58', '#6f9484'], haze: '185,208,214', snow: 0,    offset: 5, bottom: HORIZON });
 
     // ---------- SHAHAR ----------
     function skyline(count, minH, maxH, minW, maxW, baseY, tones, alpha, lit) {
@@ -503,7 +511,7 @@ function createPanoramaWindow() {
             const top = baseY - h;
             const tone = tones[Math.floor(rnd() * tones.length)];
 
-            // Fasad gradienti (shisha)
+            // Fasad gradienti
             const g = ctx.createLinearGradient(x, top, x + w, baseY);
             g.addColorStop(0, tone[0]);
             g.addColorStop(1, tone[1]);
@@ -588,7 +596,6 @@ function createPanoramaWindow() {
     }
 
     // ---------- UMUMIY YUMSHATUVCHI QATLAMLAR ----------
-    // Gorizont tumani
     const mist = ctx.createLinearGradient(0, HORIZON - 160, 0, HORIZON + 140);
     mist.addColorStop(0, 'rgba(235,243,248,0)');
     mist.addColorStop(0.5, 'rgba(235,243,248,0.35)');
@@ -596,7 +603,6 @@ function createPanoramaWindow() {
     ctx.fillStyle = mist;
     ctx.fillRect(0, HORIZON - 160, W, 300);
 
-    // Vinyetka
     const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.55, W / 2, H / 2, W * 0.75);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
     vig.addColorStop(1, 'rgba(0,15,30,0.25)');
@@ -609,8 +615,9 @@ function createPanoramaWindow() {
     texture.generateMipmaps = true;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = (typeof renderer !== 'undefined' && renderer.capabilities)
-        ? renderer.capabilities.getMaxAnisotropy() : 8;
+    const maxAniso = (typeof renderer !== 'undefined' && renderer.capabilities)
+        ? renderer.capabilities.getMaxAnisotropy() : 4;
+    texture.anisotropy = Math.min(isMobile ? 2 : 8, maxAniso);
 
     // Manzara
     const view = new THREE.Mesh(
@@ -620,23 +627,25 @@ function createPanoramaWindow() {
     view.position.set(0, windowY, wallZ);
     addRoomObject(view);
 
-    // Shisha (yengil yaltiroq qatlam)
-    const glass = new THREE.Mesh(
-        new THREE.PlaneGeometry(windowWidth, windowHeight),
-        new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.06,
-            roughness: 0.02,
-            metalness: 0,
-            clearcoat: 1,
-            clearcoatRoughness: 0.03,
-            depthWrite: false,
-            side: THREE.DoubleSide
-        })
-    );
-    glass.position.set(0, windowY, wallZ - 0.04);
-    addRoomObject(glass);
+    // Shisha qatlami (faqat kompyuterda)
+    if (!isMobile) {
+        const glass = new THREE.Mesh(
+            new THREE.PlaneGeometry(windowWidth, windowHeight),
+            new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.06,
+                roughness: 0.02,
+                metalness: 0,
+                clearcoat: 1,
+                clearcoatRoughness: 0.03,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            })
+        );
+        glass.position.set(0, windowY, wallZ - 0.04);
+        addRoomObject(glass);
+    }
 
     // ---------- RAMKA (mat qora alyuminiy) ----------
     const frameMat = new THREE.MeshStandardMaterial({
@@ -646,13 +655,12 @@ function createPanoramaWindow() {
         color: 0x3a434b, metalness: 0.9, roughness: 0.2
     });
 
-    // Tashqi yon romlar
+    // Yon romlar
     for (const side of [-1, 1]) {
         const f = new THREE.Mesh(new THREE.BoxGeometry(0.22, windowHeight + 0.22, 0.28), frameMat);
         f.position.set(side * (windowWidth / 2 + 0.05), windowY, wallZ - 0.1);
         addRoomObject(f);
 
-        // Ichki ingichka chiziq
         const a = new THREE.Mesh(new THREE.BoxGeometry(0.03, windowHeight, 0.3), accentMat);
         a.position.set(side * (windowWidth / 2 - 0.08), windowY, wallZ - 0.1);
         addRoomObject(a);
@@ -672,7 +680,7 @@ function createPanoramaWindow() {
         addRoomObject(m);
     }
 
-    // Gorizontal bo'linma (o'rtada)
+    // Gorizontal bo'linma
     const bar = new THREE.Mesh(new THREE.BoxGeometry(windowWidth, 0.05, 0.14), frameMat);
     bar.position.set(0, windowY + windowHeight * 0.18, wallZ - 0.08);
     addRoomObject(bar);
