@@ -949,138 +949,368 @@ console.log('Virtual Art Museum muvaffaqiyatli ishga tushdi!');
 console.log('Suratlarni kattalashtirish funksiyasi tayyor!');
 
 
-
 // ==========================================
-// 17. QAHRAMON TANLASH OYNASI
+// 17. IVORY PREMIUM QAHRAMON TANLASH
 // ==========================================
 
 const characterSelector = document.createElement('div');
-
 characterSelector.id = 'characterSelector';
 
-characterSelector.style.cssText = `
-    position: fixed;
-    inset: 0;
-    z-index: 20000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background: rgba(20, 20, 20, 0.94);
-    font-family: Arial, sans-serif;
+const selectorStyle = document.createElement('style');
+
+selectorStyle.textContent = `
+    #characterSelector {
+        position: fixed;
+        inset: 0;
+        z-index: 20000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        overflow-y: auto;
+        background:
+            radial-gradient(circle at 50% 0%, #ffffff 0%, transparent 55%),
+            #eeeae0;
+        font-family: Arial, sans-serif;
+        color: #292720;
+    }
+
+    .character-panel {
+        width: 100%;
+        max-width: 1000px;
+        padding: 42px 35px;
+        text-align: center;
+        background: rgba(255,255,255,0.88);
+        border: 1px solid #e6dfd1;
+        border-radius: 22px;
+        box-shadow: 0 25px 80px rgba(70,55,30,0.12);
+    }
+
+    .character-eyebrow {
+        color: #a78339;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 5px;
+        margin-bottom: 16px;
+    }
+
+    .character-panel h1 {
+        margin: 0;
+        font-size: clamp(26px, 5vw, 40px);
+        font-weight: 600;
+        letter-spacing: -1px;
+    }
+
+    .character-subtitle {
+        color: #898477;
+        font-size: 14px;
+        margin: 13px 0 32px;
+    }
+
+    #characterOptions {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 15px;
+    }
+
+    .character-card {
+        min-width: 0;
+        padding: 12px 10px 17px;
+        border: 1px solid #e8e1d5;
+        border-radius: 15px;
+        background: #faf9f5;
+        color: #302e28;
+        cursor: pointer;
+        transition: 0.25s ease;
+    }
+
+    .character-card:hover {
+        transform: translateY(-5px);
+        border-color: #c7a45d;
+        box-shadow: 0 12px 28px rgba(80,60,25,0.10);
+    }
+
+    .character-card.selected {
+        border: 2px solid #b18b43;
+        background: #f4efe3;
+        box-shadow: 0 8px 25px rgba(150,115,45,0.13);
+    }
+
+    .character-preview {
+        width: 100%;
+        height: 150px;
+        display: block;
+        object-fit: contain;
+        border-radius: 10px;
+        background:
+            radial-gradient(circle, #ffffff 0%, #f0ede5 100%);
+        margin-bottom: 13px;
+    }
+
+    .character-name {
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+    .character-choice {
+        display: block;
+        min-height: 15px;
+        margin-top: 7px;
+        color: #a78339;
+        font-size: 10px;
+        letter-spacing: 1px;
+    }
+
+    #startMuseum {
+        margin-top: 30px;
+        padding: 15px 45px;
+        border: 0;
+        border-radius: 8px;
+        background: #a78339;
+        color: white;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    #startMuseum:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    #startMuseum:not(:disabled):hover {
+        background: #89692d;
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 700px) {
+        .character-panel {
+            padding: 30px 16px;
+        }
+
+        #characterOptions {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 11px;
+        }
+
+        .character-card:last-child {
+            grid-column: 1 / -1;
+            width: calc(50% - 6px);
+            justify-self: center;
+        }
+
+        .character-preview {
+            height: 135px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .character-preview {
+            height: 115px;
+        }
+    }
 `;
 
+document.head.appendChild(selectorStyle);
+
 characterSelector.innerHTML = `
-    <div style="
-        width: 100%;
-        max-width: 850px;
-        text-align: center;
-        color: white;
-    ">
-        <div style="
-            color: #c9b99b;
-            font-size: 12px;
-            letter-spacing: 4px;
-            margin-bottom: 15px;
-        ">VIRTUAL ART MUSEUM</div>
+    <div class="character-panel">
 
-        <h1 style="
-            font-size: clamp(25px, 5vw, 40px);
-            margin-bottom: 12px;
-        ">Sayohatingizni boshlang</h1>
+        <div class="character-eyebrow">
+            VIRTUAL ART MUSEUM
+        </div>
 
-        <p style="
-            color: #bdbdbd;
-            margin-bottom: 30px;
-        ">O‘zingizga yoqqan qahramonni tanlang</p>
+        <h1>Sayohatingizni boshlang</h1>
 
-        <div id="characterOptions" style="
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
-            gap: 14px;
-        "></div>
+        <p class="character-subtitle">
+            Muzey bo‘ylab sayohat qilish uchun qahramoningizni tanlang
+        </p>
 
-        <button id="startMuseum" disabled style="
-            margin-top: 30px;
-            padding: 15px 42px;
-            border: 0;
-            border-radius: 5px;
-            background: #c9b99b;
-            color: #211e19;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            opacity: 0.45;
-        ">Muzeyga kirish</button>
+        <div id="characterOptions"></div>
+
+        <button id="startMuseum" disabled>
+            MUZEYGA KIRISH
+        </button>
+
     </div>
 `;
 
 document.body.appendChild(characterSelector);
 
 const characterTypes = [
-    { id: 'dinosaur', name: 'Dinozavr', color: '#6b9b67' },
-    { id: 'fox', name: 'Tulki', color: '#d77d38' },
-    { id: 'penguin', name: 'Pingvin', color: '#566b80' },
-    { id: 'robot', name: 'Robot', color: '#aeb8c2' },
-    { id: 'bear', name: 'Ayiq', color: '#98704e' }
+    { id: 'dinosaur', name: 'Dinozavr' },
+    { id: 'fox', name: 'Tulki' },
+    { id: 'penguin', name: 'Pingvin' },
+    { id: 'robot', name: 'Robot' },
+    { id: 'bear', name: 'Ayiq' }
 ];
 
 let selectedCharacter = null;
 
-const characterOptions = document.getElementById('characterOptions');
-const startMuseumButton = document.getElementById('startMuseum');
+const characterOptions =
+    document.getElementById('characterOptions');
+
+const startMuseumButton =
+    document.getElementById('startMuseum');
 
 characterTypes.forEach(character => {
+
     const button = document.createElement('button');
 
-    button.style.cssText = `
-        padding: 20px 10px;
-        border: 1px solid #555;
-        border-radius: 9px;
-        background: #292929;
-        color: white;
-        cursor: pointer;
-        transition: 0.2s;
-    `;
+    button.type = 'button';
+    button.className = 'character-card';
 
     button.innerHTML = `
-        <div style="
-            width: 65px;
-            height: 65px;
-            margin: 0 auto 13px;
-            border-radius: 50%;
-            background: ${character.color};
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 25px;
-            font-weight: bold;
-        ">${character.name.charAt(0)}</div>
+        <img
+            class="character-preview"
+            alt="${character.name}"
+        >
 
-        <div style="font-size: 14px; font-weight: bold;">
+        <div class="character-name">
             ${character.name}
         </div>
+
+        <span class="character-choice"></span>
     `;
 
     button.addEventListener('click', () => {
+
         selectedCharacter = character.id;
 
-        document.querySelectorAll('#characterOptions button')
+        document.querySelectorAll('.character-card')
             .forEach(item => {
-                item.style.borderColor = '#555';
-                item.style.background = '#292929';
+                item.classList.remove('selected');
+                item.querySelector('.character-choice').textContent = '';
             });
 
-        button.style.borderColor = '#c9b99b';
-        button.style.background = '#403a30';
+        button.classList.add('selected');
+
+        button.querySelector('.character-choice')
+            .textContent = 'TANLANDI';
 
         startMuseumButton.disabled = false;
-        startMuseumButton.style.opacity = '1';
     });
 
     characterOptions.appendChild(button);
 });
+
+
+// ==========================================
+// 3D QAHRAMON RASMLARINI YARATISH
+// ==========================================
+
+function generateCharacterPreviews() {
+
+    let previewRenderer;
+
+    try {
+
+        previewRenderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: false,
+            preserveDrawingBuffer: true
+        });
+
+        previewRenderer.setSize(300, 240);
+        previewRenderer.setPixelRatio(1);
+
+        previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+        previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+        previewRenderer.toneMappingExposure = 1.05;
+
+        previewRenderer.setClearColor(0xf0ede5, 1);
+
+        const previewScene = new THREE.Scene();
+        previewScene.background = new THREE.Color(0xf0ede5);
+
+        const previewCamera = new THREE.PerspectiveCamera(
+            35,
+            300 / 240,
+            0.1,
+            100
+        );
+
+        previewCamera.position.set(3, 2.8, 4.5);
+        previewCamera.lookAt(0, 1.15, 10);
+
+        const light = new THREE.HemisphereLight(
+            0xffffff,
+            0xd4cbbb,
+            2
+        );
+
+        previewScene.add(light);
+
+        const mainLight = new THREE.DirectionalLight(
+            0xffffff,
+            2.5
+        );
+
+        mainLight.position.set(-3, 7, 5);
+        previewScene.add(mainLight);
+
+        characterTypes.forEach(type => {
+
+            const character = createCharacter(type.id);
+
+            character.position.set(0, 0, 10);
+            character.rotation.y = Math.PI;
+
+            previewScene.add(character);
+
+            previewRenderer.render(
+                previewScene,
+                previewCamera
+            );
+
+            const card = Array.from(
+                characterOptions.children
+            ).find(item =>
+                item.querySelector('.character-name')
+                    .textContent === type.name
+            );
+
+            if (card) {
+                card.querySelector('.character-preview').src =
+                    previewRenderer.domElement.toDataURL('image/png');
+            }
+
+            previewScene.remove(character);
+
+            character.traverse(object => {
+
+                if (object.geometry) {
+                    object.geometry.dispose();
+                }
+
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(material => material.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
+            });
+        });
+
+        previewRenderer.dispose();
+
+    } catch (error) {
+
+        console.error(
+            'Qahramon rasmlarini yaratishda xatolik:',
+            error
+        );
+
+        if (previewRenderer) {
+            previewRenderer.dispose();
+        }
+    }
+}
+
+generateCharacterPreviews();
 
 // ==========================================
 // 18. QAHRAMON YARATISH
