@@ -351,230 +351,341 @@ function createWall(width, height, x, y, z, rotationY = 0) {
 }
 
 // ==========================================
-// PANORAMALI OYNA — TOG'LAR VA ZAMONAVIY SHAHAR
+// PANORAMALI OYNA — PREMIUM TOG'LAR VA SHAHAR
 // ==========================================
 
 function createPanoramaWindow() {
 
-const wallZ = roomDepth / 2 - 0.12;
-    
+    const wallZ = roomDepth / 2 - 0.12;
     const windowWidth = ROOM_WIDTH - 1;
     const windowHeight = 7;
     const windowY = 4;
 
-    // OYNA UCHUN MANZARA TEKSTURASI
+    // ---------- Deterministik random ----------
+    let seed = 20261112;
+    const rnd = () => {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    const W = 4096, H = 2048;
     const canvas = document.createElement('canvas');
-
-    canvas.width = 2048;
-    canvas.height = 1024;
-
+    canvas.width = W;
+    canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    // Osmon
-    const sky = ctx.createLinearGradient(0, 0, 0, 1024);
+    const HORIZON = 1450;          // shahar/tog' quyi chizig'i
+    const SUN = { x: 1250, y: 380 };
 
-    sky.addColorStop(0, '#3995dc');
-    sky.addColorStop(0.48, '#a9d6f3');
-    sky.addColorStop(1, '#e5e9ec');
-
+    // ---------- OSMON ----------
+    const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
+    sky.addColorStop(0, '#1f6fc4');
+    sky.addColorStop(0.35, '#4f9fe0');
+    sky.addColorStop(0.7, '#9fd0f0');
+    sky.addColorStop(1, '#e9f1f5');
     ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, 2048, 1024);
+    ctx.fillRect(0, 0, W, H);
 
-    // Bulutlar
-    for (let i = 0; i < 35; i++) {
-        const x = Math.random() * 2048;
-        const y = Math.random() * 220;
-        const r = 25 + Math.random() * 65;
+    // Quyosh nuri
+    const sunGlow = ctx.createRadialGradient(SUN.x, SUN.y, 0, SUN.x, SUN.y, 900);
+    sunGlow.addColorStop(0, 'rgba(255,248,225,0.95)');
+    sunGlow.addColorStop(0.08, 'rgba(255,240,200,0.55)');
+    sunGlow.addColorStop(0.35, 'rgba(255,230,190,0.18)');
+    sunGlow.addColorStop(1, 'rgba(255,230,190,0)');
+    ctx.fillStyle = sunGlow;
+    ctx.fillRect(0, 0, W, H);
 
-        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    // ---------- YUMSHOQ BULUTLAR ----------
+    function cloud(cx, cy, size, alpha) {
+        for (let i = 0; i < 26; i++) {
+            const ox = (rnd() - 0.5) * size * 2.2;
+            const oy = (rnd() - 0.5) * size * 0.35;
+            const r = size * (0.25 + rnd() * 0.45);
+            const g = ctx.createRadialGradient(cx + ox, cy + oy, 0, cx + ox, cy + oy, r);
+            g.addColorStop(0, `rgba(255,255,255,${alpha})`);
+            g.addColorStop(0.6, `rgba(250,252,255,${alpha * 0.4})`);
+            g.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(cx + ox - r, cy + oy - r, r * 2, r * 2);
+        }
+    }
+    for (let i = 0; i < 9; i++) {
+        cloud(rnd() * W, 120 + rnd() * 520, 90 + rnd() * 140, 0.35 + rnd() * 0.25);
+    }
+
+    // ---------- TOG' QATLAMI ----------
+    function ridgeHeights(base, amp, seedOffset) {
+        const p = [rnd() * 6, rnd() * 6, rnd() * 6, rnd() * 6, rnd() * 6];
+        const arr = new Float32Array(W + 1);
+        for (let x = 0; x <= W; x++) {
+            let y = 0;
+            y += Math.sin(x * 0.0018 + p[0] + seedOffset) * 1.0;
+            y += Math.sin(x * 0.0043 + p[1]) * 0.55;
+            y += Math.abs(Math.sin(x * 0.0091 + p[2])) * 0.6;   // o'tkir cho'qqilar
+            y += Math.sin(x * 0.019 + p[3]) * 0.22;
+            y += Math.sin(x * 0.047 + p[4]) * 0.08;
+            arr[x] = base - y * amp;
+        }
+        return arr;
+    }
+
+    function mountainLayer(opts) {
+        const { base, amp, color, haze, snow, offset, bottom } = opts;
+        const ys = ridgeHeights(base, amp, offset);
+
+        // Tana
+        const grad = ctx.createLinearGradient(0, base - amp * 2.2, 0, bottom);
+        grad.addColorStop(0, color[0]);
+        grad.addColorStop(1, color[1]);
+
+        ctx.save();
         ctx.beginPath();
-        ctx.ellipse(x, y, r, r * 0.35, 0, 0, Math.PI * 2);
+        ctx.moveTo(0, bottom);
+        for (let x = 0; x <= W; x++) ctx.lineTo(x, ys[x]);
+        ctx.lineTo(W, bottom);
+        ctx.closePath();
+        ctx.fillStyle = grad;
         ctx.fill();
-    }
+        ctx.clip();
 
-    // TOG'LAR
-    ctx.fillStyle = '#718da5';
-    ctx.beginPath();
-    ctx.moveTo(0, 490);
+        // Quyosh yorug'ligi: chap yon bag'ir yorug', o'ng yon bag'ir soya
+        for (let x = 0; x < W; x++) {
+            const slope = ys[x + 1] - ys[x];
+            const s = Math.min(Math.abs(slope) * 0.35, 0.35);
+            const len = 260 + Math.abs(slope) * 60;
+            const g = ctx.createLinearGradient(0, ys[x], 0, ys[x] + len);
+            const c = slope > 0 ? '255,245,225' : '15,30,55';
+            g.addColorStop(0, `rgba(${c},${s})`);
+            g.addColorStop(1, `rgba(${c},0)`);
+            ctx.fillStyle = g;
+            ctx.fillRect(x, ys[x], 1.2, len);
+        }
 
-    for (let x = 0; x <= 2048; x += 100) {
-        const y = 300 + Math.sin(x * 0.009) * 90;
-
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + 50, y - 100 - Math.random() * 100);
-    }
-
-    ctx.lineTo(2048, 550);
-    ctx.lineTo(0, 550);
-    ctx.fill();
-
-    // QORLI CHO'QQILAR
-    ctx.fillStyle = '#f4f6f8';
-
-    for (let x = 0; x < 2048; x += 180) {
-        const peakY = 230 + Math.random() * 100;
-
-        ctx.beginPath();
-        ctx.moveTo(x, peakY + 150);
-        ctx.lineTo(x + 85, peakY);
-        ctx.lineTo(x + 160, peakY + 150);
-        ctx.fill();
-    }
-
-    // TOG' ETAGI
-    ctx.fillStyle = '#668d70';
-    ctx.fillRect(0, 490, 2048, 120);
-
-    // SHAHAR ORQA FONI
-    ctx.fillStyle = '#8299a9';
-
-    for (let i = 0; i < 65; i++) {
-        const x = i * 32;
-        const w = 20 + Math.random() * 20;
-        const h = 70 + Math.random() * 150;
-
-        ctx.fillRect(x, 650 - h, w, h);
-    }
-
-    // ZAMONAVIY OS'MON O'PAR BINOLAR
-    const buildings = [
-        { x: 100, w: 95, h: 220 },
-        { x: 270, w: 110, h: 290 },
-        { x: 470, w: 85, h: 360 },
-        { x: 650, w: 130, h: 250 },
-        { x: 850, w: 115, h: 480 },
-        { x: 1100, w: 100, h: 330 },
-        { x: 1290, w: 140, h: 270 },
-        { x: 1510, w: 105, h: 390 },
-        { x: 1740, w: 130, h: 300 }
-    ];
-
-    buildings.forEach((b, i) => {
-
-        const top = 850 - b.h;
-
-        ctx.fillStyle = [
-            '#344d62',
-            '#54758c',
-            '#7895a8',
-            '#293e52'
-        ][i % 4];
-
-        ctx.fillRect(b.x, top, b.w, b.h);
-
-        // Shisha fasad
-        ctx.fillStyle = 'rgba(170,220,245,0.65)';
-
-        for (let wx = b.x + 12; wx < b.x + b.w - 8; wx += 20) {
-            for (let wy = top + 15; wy < 835; wy += 28) {
-                ctx.fillRect(wx, wy, 9, 14);
+        // Qor qalpoqlari
+        if (snow) {
+            const snowLine = base - amp * snow;
+            for (let x = 0; x < W; x++) {
+                if (ys[x] < snowLine) {
+                    const depth = (snowLine - ys[x]) * (0.9 + 0.5 * Math.sin(x * 0.13) * Math.sin(x * 0.031));
+                    const g = ctx.createLinearGradient(0, ys[x], 0, ys[x] + depth);
+                    const lit = ys[x + 1] - ys[x] > 0;
+                    g.addColorStop(0, lit ? '#ffffff' : '#d4dff0');
+                    g.addColorStop(0.7, lit ? '#eef4fb' : '#b9c8de');
+                    g.addColorStop(1, 'rgba(238,244,251,0)');
+                    ctx.fillStyle = g;
+                    ctx.fillRect(x, ys[x], 1.4, depth);
+                }
             }
         }
 
-        // Tom qismi
-        ctx.fillStyle = '#243a4e';
-        ctx.fillRect(b.x - 4, top, b.w + 8, 9);
-    });
+        // Havo perspektivasi (tuman)
+        const hz = ctx.createLinearGradient(0, base - amp * 2, 0, bottom);
+        hz.addColorStop(0, `rgba(${haze},0)`);
+        hz.addColorStop(0.55, `rgba(${haze},0.55)`);
+        hz.addColorStop(1, `rgba(${haze},0.85)`);
+        ctx.fillStyle = hz;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+    }
 
-    // OZ MIQDORDA DARAXTLAR
-    for (let i = 0; i < 22; i++) {
+    mountainLayer({ base: 1000, amp: 330, color: ['#8fa9c6', '#b7cbe0'], haze: '214,230,243', snow: 1.0, offset: 1, bottom: HORIZON });
+    mountainLayer({ base: 1120, amp: 250, color: ['#5f7f9f', '#8aa6bf'], haze: '200,220,236', snow: 1.25, offset: 3, bottom: HORIZON });
+    mountainLayer({ base: 1230, amp: 170, color: ['#3f6a58', '#6f9484'], haze: '185,208,214', snow: 0, offset: 5, bottom: HORIZON });
 
-        const x = Math.random() * 2048;
-        const y = 830 + Math.random() * 25;
+    // ---------- SHAHAR ----------
+    function skyline(count, minH, maxH, minW, maxW, baseY, tones, alpha, lit) {
+        let x = -40;
+        for (let i = 0; i < count && x < W; i++) {
+            const w = minW + rnd() * (maxW - minW);
+            const h = minH + rnd() * (maxH - minH);
+            const top = baseY - h;
+            const tone = tones[Math.floor(rnd() * tones.length)];
 
-        ctx.fillStyle = '#554c3d';
-        ctx.fillRect(x, y, 8, 65);
+            // Fasad gradienti (shisha)
+            const g = ctx.createLinearGradient(x, top, x + w, baseY);
+            g.addColorStop(0, tone[0]);
+            g.addColorStop(1, tone[1]);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = g;
+            ctx.fillRect(x, top, w, h);
 
-        ctx.fillStyle = '#477858';
+            // Yorug' qirra
+            ctx.fillStyle = 'rgba(255,255,255,0.18)';
+            ctx.fillRect(x, top, Math.max(2, w * 0.06), h);
+
+            // Deraza to'ri
+            if (lit) {
+                const cw = 7, ch = 11, gx = 14, gy = 20;
+                for (let wx = x + 10; wx < x + w - 10; wx += gx) {
+                    for (let wy = top + 16; wy < baseY - 12; wy += gy) {
+                        const r = rnd();
+                        ctx.fillStyle = r < 0.07 ? 'rgba(255,214,140,0.85)'
+                            : r < 0.5 ? 'rgba(190,230,255,0.55)'
+                            : 'rgba(110,160,195,0.45)';
+                        ctx.fillRect(wx, wy, cw, ch);
+                    }
+                }
+            }
+
+            // Tom: pog'ona yoki antenna
+            ctx.fillStyle = 'rgba(30,48,66,0.95)';
+            ctx.fillRect(x - 3, top - 6, w + 6, 8);
+            if (rnd() < 0.5) {
+                const sw = w * 0.5;
+                ctx.fillRect(x + (w - sw) / 2, top - 22, sw, 16);
+            }
+            if (rnd() < 0.35) {
+                ctx.fillRect(x + w / 2 - 1.5, top - 85, 3, 80);
+                ctx.fillStyle = '#ff5a4a';
+                ctx.beginPath();
+                ctx.arc(x + w / 2, top - 85, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            x += w + 4 + rnd() * 14;
+        }
+    }
+
+    // Uzoq qatlam (tumanli)
+    skyline(70, 140, 380, 38, 70, HORIZON + 30,
+        [['#7f9bb3', '#9db4c7'], ['#8aa3ba', '#a8bdce']], 0.8, false);
+    // Yaqin qatlam (batafsil)
+    skyline(34, 240, 700, 70, 130, HORIZON + 90,
+        [['#3a566d', '#5d7f96'], ['#2e475c', '#4b6a80'], ['#587a90', '#86a6b9'], ['#22394d', '#3e5b72']], 1, true);
+
+    // ---------- DARYO ----------
+    const riverTop = HORIZON + 90;
+    const river = ctx.createLinearGradient(0, riverTop, 0, riverTop + 140);
+    river.addColorStop(0, '#6fa3c4');
+    river.addColorStop(1, '#3f7699');
+    ctx.fillStyle = river;
+    ctx.fillRect(0, riverTop, W, 140);
+    for (let i = 0; i < 160; i++) {
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.fillRect(rnd() * W, riverTop + rnd() * 140, 40 + rnd() * 120, 1.5);
+    }
+
+    // ---------- YASHIL QIRG'OQ VA DARAXTLAR ----------
+    const park = ctx.createLinearGradient(0, riverTop + 140, 0, H);
+    park.addColorStop(0, '#4d7a55');
+    park.addColorStop(1, '#2f5238');
+    ctx.fillStyle = park;
+    ctx.fillRect(0, riverTop + 140, W, H);
+
+    for (let i = 0; i < 90; i++) {
+        const x = rnd() * W;
+        const y = riverTop + 150 + rnd() * 130;
+        const r = 22 + rnd() * 30;
+        const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.4, 0, x, y, r);
+        g.addColorStop(0, '#7fb07a');
+        g.addColorStop(1, '#2f5f3e');
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(x + 4, y - 8, 24, 0, Math.PI * 2);
+        ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    // YER
-    ctx.fillStyle = '#788b91';
-    ctx.fillRect(0, 890, 2048, 134);
+    // ---------- UMUMIY YUMSHATUVCHI QATLAMLAR ----------
+    // Gorizont tumani
+    const mist = ctx.createLinearGradient(0, HORIZON - 160, 0, HORIZON + 140);
+    mist.addColorStop(0, 'rgba(235,243,248,0)');
+    mist.addColorStop(0.5, 'rgba(235,243,248,0.35)');
+    mist.addColorStop(1, 'rgba(235,243,248,0)');
+    ctx.fillStyle = mist;
+    ctx.fillRect(0, HORIZON - 160, W, 300);
 
-    // TEKSTURANI THREE.JS GA O'TKAZISH
+    // Vinyetka
+    const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.55, W / 2, H / 2, W * 0.75);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,15,30,0.25)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+
+    // ---------- TEKSTURA ----------
     const texture = new THREE.CanvasTexture(canvas);
-
     texture.colorSpace = THREE.SRGBColorSpace;
-
     texture.generateMipmaps = true;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = (typeof renderer !== 'undefined' && renderer.capabilities)
+        ? renderer.capabilities.getMaxAnisotropy() : 8;
 
-    // OYNA
+    // Manzara
+    const view = new THREE.Mesh(
+        new THREE.PlaneGeometry(windowWidth, windowHeight),
+        new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, toneMapped: false })
+    );
+    view.position.set(0, windowY, wallZ);
+    addRoomObject(view);
+
+    // Shisha (yengil yaltiroq qatlam)
     const glass = new THREE.Mesh(
         new THREE.PlaneGeometry(windowWidth, windowHeight),
-        new THREE.MeshBasicMaterial({
-            map: texture,
-            side: THREE.DoubleSide,
-            toneMapped: false
+        new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.06,
+            roughness: 0.02,
+            metalness: 0,
+            clearcoat: 1,
+            clearcoatRoughness: 0.03,
+            depthWrite: false,
+            side: THREE.DoubleSide
         })
     );
-
-    glass.position.set(0, windowY, wallZ);
+    glass.position.set(0, windowY, wallZ - 0.04);
     addRoomObject(glass);
 
-    // QORA METALL RAMKA
-    const frameMaterial = new THREE.MeshStandardMaterial({
-        color: 0x242b31,
-        metalness: 0.8,
-        roughness: 0.25
+    // ---------- RAMKA (mat qora alyuminiy) ----------
+    const frameMat = new THREE.MeshStandardMaterial({
+        color: 0x1b2025, metalness: 0.85, roughness: 0.32
+    });
+    const accentMat = new THREE.MeshStandardMaterial({
+        color: 0x3a434b, metalness: 0.9, roughness: 0.2
     });
 
-    // Yon romlar
+    // Tashqi yon romlar
     for (const side of [-1, 1]) {
+        const f = new THREE.Mesh(new THREE.BoxGeometry(0.22, windowHeight + 0.22, 0.28), frameMat);
+        f.position.set(side * (windowWidth / 2 + 0.05), windowY, wallZ - 0.1);
+        addRoomObject(f);
 
-        const frame = new THREE.Mesh(
-            new THREE.BoxGeometry(0.12, windowHeight, 0.16),
-            frameMaterial
-        );
-
-        frame.position.set(
-            side * windowWidth / 2,
-            windowY,
-            wallZ - 0.08
-        );
-
-        addRoomObject(frame);
+        // Ichki ingichka chiziq
+        const a = new THREE.Mesh(new THREE.BoxGeometry(0.03, windowHeight, 0.3), accentMat);
+        a.position.set(side * (windowWidth / 2 - 0.08), windowY, wallZ - 0.1);
+        addRoomObject(a);
     }
 
     // Yuqori va pastki romlar
-    for (const y of [
-        windowY - windowHeight / 2,
-        windowY + windowHeight / 2
-    ]) {
-
-        const frame = new THREE.Mesh(
-            new THREE.BoxGeometry(windowWidth, 0.12, 0.16),
-            frameMaterial
-        );
-
-        frame.position.set(0, y, wallZ - 0.08);
-
-        addRoomObject(frame);
+    for (const y of [windowY - windowHeight / 2, windowY + windowHeight / 2]) {
+        const f = new THREE.Mesh(new THREE.BoxGeometry(windowWidth + 0.32, 0.22, 0.28), frameMat);
+        f.position.set(0, y, wallZ - 0.1);
+        addRoomObject(f);
     }
 
-    // Vertikal metall bo'linmalar
+    // Vertikal bo'linmalar
     for (let i = 1; i < 5; i++) {
-
-        const frame = new THREE.Mesh(
-            new THREE.BoxGeometry(0.055, windowHeight, 0.12),
-            frameMaterial
-        );
-
-        frame.position.set(
-            -windowWidth / 2 + (windowWidth / 5) * i,
-            windowY,
-            wallZ - 0.09
-        );
-
-        addRoomObject(frame);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, windowHeight, 0.16), frameMat);
+        m.position.set(-windowWidth / 2 + (windowWidth / 5) * i, windowY, wallZ - 0.08);
+        addRoomObject(m);
     }
 
-    console.log('Panoramali tog‘ va shahar oynasi yaratildi.');
+    // Gorizontal bo'linma (o'rtada)
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(windowWidth, 0.05, 0.14), frameMat);
+    bar.position.set(0, windowY + windowHeight * 0.18, wallZ - 0.08);
+    addRoomObject(bar);
+
+    // Tokcha (sill)
+    const sill = new THREE.Mesh(
+        new THREE.BoxGeometry(windowWidth + 0.6, 0.12, 0.55),
+        new THREE.MeshStandardMaterial({ color: 0xe9e6df, metalness: 0.1, roughness: 0.35 })
+    );
+    sill.position.set(0, windowY - windowHeight / 2 - 0.12, wallZ - 0.3);
+    addRoomObject(sill);
+
+    console.log('Premium panoramali tog‘ va shahar oynasi yaratildi.');
 }
 
 function buildMuseumRoom(depth, width = 24) {
