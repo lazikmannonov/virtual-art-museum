@@ -784,7 +784,12 @@ app.get('/api/museums/:slug', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Three.js kutubxonasi
+// Three.js qo‘shimcha modullari (GLTFLoader, SkeletonUtils va boshqalar)
+app.use('/three/examples', express.static(
+    path.join(__dirname, '../node_modules/three/examples')
+));
+
+// Three.js asosiy kutubxonasi
 app.use('/three', express.static(
     path.join(__dirname, '../node_modules/three/build')
 ));
