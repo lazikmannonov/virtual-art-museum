@@ -1602,95 +1602,155 @@ let player = null;
 let playerParts = null;
 
 
+// Mo‘yna/teri uchun mayda g‘adir-budurlik (bump) teksturasi
+var furNoiseTexture = null;
+
+function getFurNoiseTexture() {
+    if (furNoiseTexture) return furNoiseTexture;
+
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+
+    const context = canvas.getContext('2d');
+    const imageData = context.createImageData(size, size);
+
+    for (let i = 0; i < size * size; i++) {
+        const value = 100 + Math.random() * 110;
+
+        imageData.data[i * 4] = value;
+        imageData.data[i * 4 + 1] = value;
+        imageData.data[i * 4 + 2] = value;
+        imageData.data[i * 4 + 3] = 255;
+    }
+
+    context.putImageData(imageData, 0, 0);
+
+    // Biroz xiralashtirish (donadorlik o‘rniga yumshoq tola ko‘rinishi uchun)
+    const small = document.createElement('canvas');
+    small.width = 128;
+    small.height = 128;
+    small.getContext('2d').drawImage(canvas, 0, 0, 128, 128);
+    context.drawImage(small, 0, 0, size, size);
+
+    furNoiseTexture = new THREE.CanvasTexture(canvas);
+    furNoiseTexture.wrapS = THREE.RepeatWrapping;
+    furNoiseTexture.wrapT = THREE.RepeatWrapping;
+    furNoiseTexture.repeat.set(7, 4);
+    furNoiseTexture.anisotropy = 4;
+
+    return furNoiseTexture;
+}
+
+// Qahramon "terisi": uchlari rangli (vertex colors) bo‘lgani uchun
+// qorin, yonoq va dum uchi yumshoq o‘tish bilan chiqadi
+function makeToonSkin(kind, sheenHex) {
+    const settings = {
+        fur:     { roughness: 0.9,  sheen: 1,   sheenRoughness: 0.4, clearcoat: 0,    bump: 0.5  },
+        feather: { roughness: 0.55, sheen: 0.6, sheenRoughness: 0.5, clearcoat: 0.25, bump: 0.15 },
+        skin:    { roughness: 0.5,  sheen: 0.3, sheenRoughness: 0.6, clearcoat: 0.3,  bump: 0.25 },
+        gloss:   { roughness: 0.22, sheen: 0,   sheenRoughness: 0.5, clearcoat: 1,    bump: 0    }
+    }[kind];
+
+    const material = new THREE.MeshPhysicalMaterial({
+        vertexColors: true,
+        roughness: settings.roughness,
+        sheen: settings.sheen,
+        sheenRoughness: settings.sheenRoughness,
+        sheenColor: new THREE.Color(sheenHex),
+        clearcoat: settings.clearcoat,
+        clearcoatRoughness: 0.3,
+        metalness: kind === 'gloss' ? 0.12 : 0
+    });
+
+    // Yumshoq "teri ostidagi" iliq yorug‘lik (multfilm ko‘rinishi)
+    if (kind !== 'gloss') {
+        material.emissive = new THREE.Color(sheenHex);
+        material.emissiveIntensity = 0.05;
+    }
+
+    if (settings.bump > 0) {
+        material.bumpMap = getFurNoiseTexture();
+        material.bumpScale = settings.bump;
+    }
+
+    return material;
+}
+
 function createCharacter(type) {
     const character = new THREE.Group();
 
-    // Mo‘yna / baxmal ko‘rinishli material
-    function fur(color, roughness = 0.9) {
-        const base = new THREE.Color(color);
-
-        return new THREE.MeshPhysicalMaterial({
-            color: base,
-            roughness,
-            sheen: 1,
-            sheenRoughness: 0.45,
-            sheenColor: base.clone().lerp(new THREE.Color(0xffffff), 0.45)
-        });
-    }
-
-    // Yaltiroq "plastik/silikon" material
-    function glossy(color, roughness = 0.45, clearcoat = 0.4) {
-        return new THREE.MeshPhysicalMaterial({
-            color,
-            roughness,
-            clearcoat,
-            clearcoatRoughness: 0.35
-        });
-    }
-
-    // PREMIUM MATERIALLAR
-    const mat = {
-        dinosaur: glossy(0x70ad65, 0.5, 0.35),
-        fox: fur(0xe98232),
-        penguin: new THREE.MeshPhysicalMaterial({
-            color: 0x293b50,
-            roughness: 0.55,
-            clearcoat: 0.3,
-            clearcoatRoughness: 0.4,
-            sheen: 0.6,
-            sheenRoughness: 0.5,
-            sheenColor: new THREE.Color(0x6d86a3)
-        }),
-        robot: new THREE.MeshPhysicalMaterial({
-            color: 0xdce5ed,
-            metalness: 0.9,
-            roughness: 0.22,
-            clearcoat: 1,
-            clearcoatRoughness: 0.08
-        }),
-        bear: fur(0x9b6542, 0.92),
-
-        cream: fur(0xffe9c8),
-        // Ko‘z oqi: yaltiroq
-        white: new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            roughness: 0.35,
-            clearcoat: 1,
-            clearcoatRoughness: 0.05
-        }),
-        // Qorachiq: "ho‘l" ko‘rinadi
-        black: new THREE.MeshPhysicalMaterial({
-            color: 0x0b0e14,
-            roughness: 0.08,
-            clearcoat: 1,
-            clearcoatRoughness: 0.02
-        }),
-        orange: glossy(0xffa52e, 0.45, 0.4),
-        pink: fur(0xf5a6a6),
-        blue: new THREE.MeshStandardMaterial({
-            color: 0x42b9f5,
-            emissive: 0x12628c,
-            emissiveIntensity: 1.2
-        }),
-        red: glossy(0xd94d54, 0.3, 1),
-        dark: new THREE.MeshStandardMaterial({
-            color: 0x30343a,
-            roughness: 0.6,
-            metalness: 0.3
-        })
+    const palettes = {
+        bear:     { base: 0xa86a3f, belly: 0xf1dcb8, pink: 0xf0a3a0, iris: 0x4a2a12, sheen: 0xffd9b0, lid: 0xa86a3f },
+        fox:      { base: 0xea822c, belly: 0xfff1da, pink: 0xf5a89a, iris: 0xa4531a, sheen: 0xffd2a0, lid: 0xea822c, dark: 0x3d2416 },
+        penguin:  { base: 0x1f2b3d, belly: 0xf8f6f0, pink: 0xf2a8a0, iris: 0x3a2312, sheen: 0x7f9bc0, lid: 0xf8f6f0, beak: 0xffa11f },
+        dinosaur: { base: 0x62b84f, belly: 0xf2e6a6, pink: 0xf2a08a, iris: 0x3d2b0c, sheen: 0xc8f0a0, lid: 0x62b84f, spike: 0xffa733, tail: 0x86d06a },
+        robot:    { base: 0xeef2f6, sheen: 0xffffff, joint: 0x4b535c }
     };
 
-    const main = mat[type];
+    const P = palettes[type];
 
-    if (!main) {
+    if (!P) {
         console.error('Noma’lum qahramon turi:', type);
         return character;
     }
 
-    // SHAR YORDAMIDA TANANING YUMALOQ QISMLARI
-    function sphere(parent, x, y, z, sx, sy, sz, material) {
+    const kind = {
+        bear: 'fur',
+        fox: 'fur',
+        penguin: 'feather',
+        dinosaur: 'skin',
+        robot: 'gloss'
+    }[type];
+
+    const skin = makeToonSkin(kind, P.sheen);
+
+    const sides = [-1, 1];
+
+    // Ikki tomonga aks ettirilgan dog‘lar (yonoq va h.k.)
+    const mirrored = (dx, dy, dz, rest) =>
+        sides.map(side => ({ dir: [dx * side, dy, dz], ...rest }));
+
+    // ------------------------------------------
+    // Oddiy materiallar
+    // ------------------------------------------
+
+    function glossy(color, roughness = 0.3, clearcoat = 1) {
+        return new THREE.MeshPhysicalMaterial({
+            color,
+            roughness,
+            clearcoat,
+            clearcoatRoughness: 0.08
+        });
+    }
+
+    const eyeWhite = glossy(0xffffff, 0.2, 1);
+    const black = glossy(0x07080c, 0.05, 1);
+    const noseMaterial = glossy(0x1a1214, 0.15, 1);
+    const mouthMaterial = glossy(0x2a1612, 0.4, 0.2);
+    const basicWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const irisOuter = glossy(new THREE.Color(P.iris || 0x333333).multiplyScalar(0.55), 0.2, 1);
+    const irisInner = glossy(P.iris || 0x333333, 0.2, 1);
+    const lidMaterial = new THREE.MeshPhysicalMaterial({
+        color: P.lid || 0xffffff,
+        roughness: 0.9
+    });
+    const darkMetal = glossy(P.joint || 0x30343a, 0.35, 0.6);
+    const glow = new THREE.MeshStandardMaterial({
+        color: 0x1b6fa8,
+        emissive: 0x4fc3ff,
+        emissiveIntensity: 2.6,
+        roughness: 0.4
+    });
+
+    // ------------------------------------------
+    // Shakl yasash yordamchilari
+    // ------------------------------------------
+
+    function ball(parent, x, y, z, sx, sy, sz, material) {
         const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(1, 48, 32),
+            new THREE.SphereGeometry(1, 32, 24),
             material
         );
 
@@ -1703,14 +1763,57 @@ function createCharacter(type) {
         return mesh;
     }
 
-    // KUB SHAKLLAR
-    function box(parent, x, y, z, sx, sy, sz, material) {
-        const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(sx, sy, sz),
-            material
-        );
+    // Rangli (gradient) ellipsoid: dog‘lar yumshoq o‘tadi
+    function toonSphere(parent, x, y, z, sx, sy, sz, material, base, patches = []) {
+        const geometry = new THREE.SphereGeometry(1, 56, 40);
+        const position = geometry.attributes.position;
+        const colors = new Float32Array(position.count * 3);
+
+        const normal = new THREE.Vector3();
+        const color = new THREE.Color();
+        const baseColor = new THREE.Color(base);
+
+        const prepared = patches.map(patch => ({
+            dir: new THREE.Vector3(...patch.dir).normalize(),
+            color: new THREE.Color(patch.color),
+            size: patch.size,
+            soft: patch.soft
+        }));
+
+        for (let i = 0; i < position.count; i++) {
+            normal.set(
+                position.getX(i),
+                position.getY(i),
+                position.getZ(i)
+            ).normalize();
+
+            color.copy(baseColor);
+
+            for (const patch of prepared) {
+                const amount = THREE.MathUtils.smoothstep(
+                    normal.dot(patch.dir),
+                    patch.size,
+                    patch.size + patch.soft
+                );
+
+                color.lerp(patch.color, amount);
+            }
+
+            // Pastki qismni biroz qoraytirish (yumshoq soya ta’siri)
+            const shade = 0.78 + 0.22 * THREE.MathUtils.smoothstep(normal.y, -0.9, 0.25);
+            color.multiplyScalar(shade);
+
+            colors[i * 3] = color.r;
+            colors[i * 3 + 1] = color.g;
+            colors[i * 3 + 2] = color.b;
+        }
+
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const mesh = new THREE.Mesh(geometry, material);
 
         mesh.position.set(x, y, z);
+        mesh.scale.set(sx, sy, sz);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         parent.add(mesh);
@@ -1718,234 +1821,348 @@ function createCharacter(type) {
         return mesh;
     }
 
-    // KONUS SHAKLLAR
-    function cone(parent, x, y, z, radius, height, material) {
-        const mesh = new THREE.Mesh(
-            new THREE.ConeGeometry(radius, height, 32),
-            material
-        );
+    // Uchi boshqa rangga o‘tadigan konus (quloq, dum, tikan)
+    function toonCone(parent, x, y, z, radius, height, rx, rz, flatten, base, tip) {
+        const geometry = new THREE.ConeGeometry(radius, height, 40, 12);
+        const position = geometry.attributes.position;
+        const colors = new Float32Array(position.count * 3);
+
+        const baseColor = new THREE.Color(base);
+        const tipColor = new THREE.Color(tip);
+        const color = new THREE.Color();
+
+        for (let i = 0; i < position.count; i++) {
+            const amount = THREE.MathUtils.smoothstep(
+                position.getY(i),
+                height * 0.15,
+                height * 0.5
+            );
+
+            color.copy(baseColor).lerp(tipColor, amount);
+
+            colors[i * 3] = color.r;
+            colors[i * 3 + 1] = color.g;
+            colors[i * 3 + 2] = color.b;
+        }
+
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const mesh = new THREE.Mesh(geometry, skin);
 
         mesh.position.set(x, y, z);
+        mesh.rotation.set(rx, 0, rz);
+        mesh.scale.z = flatten;
         mesh.castShadow = true;
+        mesh.receiveShadow = true;
         parent.add(mesh);
 
         return mesh;
     }
 
-    // KO‘ZLAR
-    function eyes(y, z, spacing = 0.14) {
-        for (const side of [-1, 1]) {
-            const x = side * spacing;
+    // Tabassum (yarim aylana)
+    function smile(x, y, z, radius, material = mouthMaterial) {
+        const mesh = new THREE.Mesh(
+            new THREE.TorusGeometry(radius, radius * 0.14, 12, 32, Math.PI),
+            material
+        );
 
-            sphere(character, x, y, z, 0.105, 0.125, 0.055, mat.white);
-            sphere(character, x, y - 0.005, z - 0.047, 0.060, 0.078, 0.035, mat.black);
+        mesh.position.set(x, y, z);
+        mesh.rotation.z = Math.PI;
+        parent_add(mesh);
+    }
 
-            // Ko‘zdagi yorug‘lik nuqtasi
-            sphere(character, x - 0.018, y + 0.028, z - 0.077,
-                0.021, 0.025, 0.012, mat.white);
+    function parent_add(mesh) {
+        mesh.castShadow = false;
+        character.add(mesh);
+    }
+
+    // Katta, jonli ko‘z: oq, ikki qavatli iris, qorachiq, ikkita yaltiroq nuqta va qovoq
+    function addEye(x, y, z, scale = 1) {
+        const eye = new THREE.Group();
+
+        eye.position.set(x, y, z);
+        eye.scale.setScalar(scale);
+
+        ball(eye, 0, 0, 0, 0.15, 0.162, 0.14, eyeWhite);
+        ball(eye, 0, -0.004, -0.12, 0.103, 0.11, 0.045, irisOuter);
+        ball(eye, 0, -0.004, -0.128, 0.083, 0.09, 0.04, irisInner);
+        ball(eye, 0, -0.004, -0.14, 0.05, 0.058, 0.03, black);
+
+        // Yaltiroq nuqtalar
+        ball(eye, -0.035, 0.045, -0.158, 0.026, 0.026, 0.012, basicWhite);
+        ball(eye, 0.032, -0.04, -0.158, 0.013, 0.013, 0.012, basicWhite);
+
+        // Yuqori qovoq (ko‘zni biroz mehribon qiladi)
+        const lid = new THREE.Mesh(
+            new THREE.SphereGeometry(0.16, 32, 16, 0, Math.PI * 2, 0, 0.82),
+            lidMaterial
+        );
+
+        lid.scale.set(1, 1.01, 0.95);
+        lid.castShadow = true;
+        eye.add(lid);
+
+        character.add(eye);
+    }
+
+    // ------------------------------------------
+    // Tana va bosh dizayni
+    // ------------------------------------------
+
+    const design = {
+        bear: {
+            body: [0.48, 0.5, 0.4],
+            bodyPatches: [{ dir: [0, -0.05, -1], size: 0.68, soft: 0.22, color: P.belly }],
+            head: [0.6, 0.52, 0.52],
+            headPatches: mirrored(0.62, -0.22, -0.75, { size: 0.88, soft: 0.08, color: P.pink })
+        },
+        fox: {
+            body: [0.46, 0.5, 0.38],
+            bodyPatches: [{ dir: [0, -0.05, -1], size: 0.72, soft: 0.2, color: P.belly }],
+            head: [0.66, 0.5, 0.52],
+            headPatches: [
+                { dir: [0, -0.6, -0.75], size: 0.5, soft: 0.25, color: P.belly },
+                ...mirrored(0.95, -0.2, -0.3, { size: 0.72, soft: 0.15, color: P.belly })
+            ]
+        },
+        penguin: {
+            body: [0.52, 0.58, 0.46],
+            bodyPatches: [{ dir: [0, -0.1, -1], size: 0.38, soft: 0.3, color: P.belly }],
+            head: [0.56, 0.5, 0.5],
+            headPatches: mirrored(0.55, -0.1, -0.82, { size: 0.78, soft: 0.14, color: P.belly })
+        },
+        dinosaur: {
+            body: [0.48, 0.52, 0.42],
+            bodyPatches: [{ dir: [0, -0.05, -1], size: 0.6, soft: 0.25, color: P.belly }],
+            head: [0.6, 0.52, 0.54],
+            headPatches: mirrored(0.62, -0.22, -0.75, { size: 0.9, soft: 0.07, color: P.pink })
+        },
+        robot: {
+            body: [0.46, 0.5, 0.4],
+            bodyPatches: [],
+            head: [0.62, 0.52, 0.52],
+            headPatches: []
         }
-    }
+    }[type];
 
-    // YONOQLAR
-    function cheeks(y, z, material = mat.cream) {
-        sphere(character, -0.22, y, z, 0.09, 0.055, 0.035, material);
-        sphere(character, 0.22, y, z, 0.09, 0.055, 0.035, material);
-    }
-
-    // TANASI
-    if (type === 'robot') {
-        box(character, 0, 1.05, 0, 0.76, 0.82, 0.54, mat.robot);
-        box(character, 0, 0.75, -0.285, 0.35, 0.12, 0.025, mat.blue);
-        sphere(character, 0, 1.05, -0.29, 0.10, 0.10, 0.025, mat.blue);
-    } else {
-        sphere(character, 0, 1.08, 0, 0.45, 0.62, 0.36, main);
-    }
-
-    // QORIN VA KO‘KRAK
-    if (type === 'dinosaur') {
-        sphere(character, 0, 1.05, -0.315, 0.31, 0.46, 0.09, mat.cream);
-    }
-
+    // Dum va tikanlar tanadan oldin (orqada) qo‘shiladi
     if (type === 'fox') {
-        sphere(character, 0, 1.04, -0.30, 0.29, 0.43, 0.09, mat.cream);
-    }
+        const tail = toonSphere(character, 0, 0.92, 0.62, 0.2, 0.22, 0.62, skin, P.base, [
+            { dir: [0, 0, 1], size: 0.55, soft: 0.12, color: P.belly }
+        ]);
 
-    if (type === 'penguin') {
-        sphere(character, 0, 1.05, -0.30, 0.32, 0.48, 0.12, mat.white);
+        tail.rotation.x = -0.5;
     }
 
     if (type === 'bear') {
-        sphere(character, 0, 1.05, -0.31, 0.30, 0.43, 0.10, mat.cream);
+        toonSphere(character, 0, 0.88, 0.38, 0.15, 0.15, 0.15, skin, P.base);
     }
 
-    // BOSH
-    const headY = 1.98;
+    if (type === 'penguin') {
+        toonSphere(character, 0, 0.62, 0.42, 0.12, 0.07, 0.17, skin, P.base);
+    }
+
+    if (type === 'dinosaur') {
+        // Yo‘g‘onlashib uchi ingichka dum
+        toonCone(character, 0, 0.78, 0.66, 0.26, 0.95, Math.PI / 2 - 0.25, 0, 1, P.base, P.tail);
+
+        // Orqa tikanlari
+        const spikes = [
+            [1.42, 0.25, 0.09],
+            [1.24, 0.35, 0.085],
+            [1.05, 0.4, 0.08],
+            [0.86, 0.37, 0.07],
+            [0.7, 0.3, 0.06]
+        ];
+
+        spikes.forEach(([sy, sz, radius]) => {
+            toonCone(character, 0, sy, sz, radius, radius * 2.4, 0.95, 0, 1, P.spike, P.spike);
+        });
+    }
+
+    // Tana
+    toonSphere(character, 0, 1.02, 0, ...design.body, skin, P.base, design.bodyPatches);
+
+    // Bosh
+    toonSphere(character, 0, 1.82, -0.02, ...design.head, skin, P.base, design.headPatches);
+
+    // ------------------------------------------
+    // Yuz detallari
+    // ------------------------------------------
 
     if (type === 'robot') {
-        box(character, 0, headY, -0.02, 0.78, 0.67, 0.58, mat.robot);
-        box(character, 0, headY, -0.325, 0.59, 0.40, 0.035, mat.black);
+        // Ko‘krak paneli va yorug‘ nuqta
+        ball(character, 0, 1.05, -0.39, 0.22, 0.2, 0.04, black);
+        ball(character, 0, 1.05, -0.425, 0.09, 0.09, 0.02, glow);
 
-        // Robot ko‘zlari
-        for (const side of [-1, 1]) {
-            sphere(character, side * 0.15, 2.04, -0.36,
-                0.065, 0.045, 0.025, mat.blue);
+        // Yuz ekrani
+        ball(character, 0, 1.83, -0.42, 0.42, 0.34, 0.14, black);
+
+        // Ekrandagi ko‘zlar va tabassum
+        for (const side of sides) {
+            ball(character, side * 0.15, 1.87, -0.545, 0.065, 0.085, 0.02, glow);
         }
 
-        // Robot tabassumi
-        box(character, 0, 1.87, -0.36, 0.15, 0.025, 0.025, mat.blue);
+        const robotSmile = new THREE.Mesh(
+            new THREE.TorusGeometry(0.07, 0.012, 12, 32, Math.PI),
+            glow
+        );
+
+        robotSmile.position.set(0, 1.76, -0.545);
+        robotSmile.rotation.z = Math.PI;
+        character.add(robotSmile);
+
+        // Quloq disklari
+        for (const side of sides) {
+            const ear = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.15, 0.15, 0.1, 32),
+                darkMetal
+            );
+
+            ear.position.set(side * 0.62, 1.82, -0.02);
+            ear.rotation.z = Math.PI / 2;
+            ear.castShadow = true;
+            character.add(ear);
+        }
 
         // Antenna
-        box(character, 0, 2.39, 0, 0.045, 0.20, 0.045, mat.dark);
-        sphere(character, 0, 2.52, 0, 0.085, 0.085, 0.085, mat.red);
+        const stick = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.02, 0.02, 0.22, 16),
+            darkMetal
+        );
 
-        // Quloq detallari
-        sphere(character, -0.43, 2.0, 0, 0.09, 0.15, 0.10, mat.dark);
-        sphere(character, 0.43, 2.0, 0, 0.09, 0.15, 0.10, mat.dark);
+        stick.position.set(0, 2.42, 0);
+        character.add(stick);
+
+        ball(character, 0, 2.57, 0, 0.07, 0.07, 0.07, glossy(0xd94d54, 0.3, 1));
 
     } else {
-        sphere(character, 0, headY, -0.04, 0.43, 0.42, 0.37, main);
+        const eyeX = { bear: 0.23, fox: 0.23, penguin: 0.2, dinosaur: 0.22 }[type];
 
-        // Ko‘zlar
-        eyes(2.02, -0.385, 0.15);
-
-        // Quloqlar
-        if (type === 'bear') {
-            sphere(character, -0.34, 2.28, -0.02, 0.17, 0.18, 0.14, main);
-            sphere(character, 0.34, 2.28, -0.02, 0.17, 0.18, 0.14, main);
-
-            sphere(character, -0.34, 2.28, -0.14, 0.09, 0.10, 0.035, mat.pink);
-            sphere(character, 0.34, 2.28, -0.14, 0.09, 0.10, 0.035, mat.pink);
-
-            sphere(character, 0, 1.87, -0.39, 0.24, 0.17, 0.12, mat.cream);
-            sphere(character, 0, 1.93, -0.50, 0.065, 0.05, 0.035, mat.black);
-            cheeks(1.91, -0.40, mat.pink);
+        for (const side of sides) {
+            addEye(side * eyeX, 1.87, -0.4);
         }
-
-        if (type === 'fox') {
-            cone(character, -0.27, 2.40, -0.02, 0.18, 0.55, main);
-            cone(character, 0.27, 2.40, -0.02, 0.18, 0.55, main);
-
-            sphere(character, -0.27, 2.39, -0.12, 0.08, 0.19, 0.035, mat.cream);
-            sphere(character, 0.27, 2.39, -0.12, 0.08, 0.19, 0.035, mat.cream);
-
-            sphere(character, 0, 1.88, -0.39, 0.24, 0.16, 0.13, mat.cream);
-            sphere(character, 0, 1.94, -0.51, 0.06, 0.045, 0.035, mat.black);
-            cheeks(1.91, -0.40, mat.pink);
-        }
-
-        if (type === 'dinosaur') {
-            sphere(character, 0, 1.87, -0.39, 0.27, 0.17, 0.15, main);
-            sphere(character, -0.12, 1.91, -0.52, 0.035, 0.025, 0.02, mat.dark);
-            sphere(character, 0.12, 1.91, -0.52, 0.035, 0.025, 0.02, mat.dark);
-
-            // Orqa tomondagi mayda tikanlar
-            for (let i = 0; i < 5; i++) {
-                cone(
-                    character,
-                    0,
-                    1.25 + i * 0.20,
-                    0.32,
-                    0.085,
-                    0.18,
-                    mat.orange
-                );
-            }
-
-            cheeks(1.91, -0.40, mat.cream);
-        }
-
-        if (type === 'penguin') {
-            cone(character, 0, 1.91, -0.49, 0.13, 0.20, mat.orange);
-            sphere(character, -0.20, 2.25, -0.02, 0.10, 0.07, 0.08, mat.white);
-            sphere(character, 0.20, 2.25, -0.02, 0.10, 0.07, 0.08, mat.white);
-        }
-    }
-
-    // DUM
-    if (type === 'fox') {
-        const tail = sphere(character, 0, 0.93, 0.48,
-            0.20, 0.22, 0.58, main);
-
-        tail.rotation.x = -0.30;
-
-        sphere(character, 0, 0.78, 0.93,
-            0.17, 0.17, 0.19, mat.cream);
-    }
-
-    if (type === 'dinosaur') {
-        const tail = cone(character, 0, 0.82, 0.63,
-            0.22, 0.90, main);
-
-        tail.rotation.x = -Math.PI / 2;
     }
 
     if (type === 'bear') {
-        sphere(character, 0, 0.90, 0.39, 0.16, 0.16, 0.16, main);
+        // Tumshuq
+        toonSphere(character, 0, 1.66, -0.4, 0.25, 0.18, 0.19, skin, P.belly);
+        ball(character, 0, 1.76, -0.585, 0.085, 0.06, 0.05, noseMaterial);
+        smile(0, 1.655, -0.595, 0.07);
+
+        // Quloqlar
+        for (const side of sides) {
+            toonSphere(character, side * 0.42, 2.2, -0.02, 0.19, 0.19, 0.14, skin, P.base);
+            toonSphere(character, side * 0.42, 2.2, -0.12, 0.11, 0.11, 0.06, skin, P.pink);
+        }
     }
 
-    // QO‘LLAR
-    const leftArm = new THREE.Group();
-    leftArm.position.set(-0.43, 1.48, 0);
-    character.add(leftArm);
+    if (type === 'fox') {
+        // Uzun tumshuq
+        toonSphere(character, 0, 1.69, -0.45, 0.17, 0.13, 0.22, skin, P.belly);
+        ball(character, 0, 1.71, -0.665, 0.065, 0.05, 0.05, noseMaterial);
+        smile(0, 1.63, -0.64, 0.06);
 
-    const rightArm = new THREE.Group();
-    rightArm.position.set(0.43, 1.48, 0);
-    character.add(rightArm);
+        // Uchi qora, ichi och quloqlar
+        for (const side of sides) {
+            const tilt = -side * 0.2;
 
-    sphere(leftArm, 0, -0.22, 0, 0.15, 0.35, 0.16, main);
-    sphere(rightArm, 0, -0.22, 0, 0.15, 0.35, 0.16, main);
+            toonCone(character, side * 0.3, 2.28, -0.02, 0.2, 0.6, 0, tilt, 0.55, P.base, P.dark);
+            toonCone(character, side * 0.3, 2.26, -0.1, 0.12, 0.46, 0, tilt, 0.4, P.belly, P.belly);
+        }
+    }
 
-    sphere(leftArm, 0, -0.46, -0.015, 0.14, 0.13, 0.14,
-        type === 'robot' ? mat.robot : main);
-
-    sphere(rightArm, 0, -0.46, -0.015, 0.14, 0.13, 0.14,
-        type === 'robot' ? mat.robot : main);
-
-    // PINGVIN QANOTLARI
     if (type === 'penguin') {
-        leftArm.rotation.z = 0.25;
-        rightArm.rotation.z = -0.25;
+        // Tumshuq
+        const beak = new THREE.Mesh(
+            new THREE.ConeGeometry(0.1, 0.26, 32),
+            glossy(P.beak, 0.35, 0.6)
+        );
+
+        beak.position.set(0, 1.74, -0.6);
+        beak.rotation.x = -Math.PI / 2;
+        beak.scale.z = 0.6;
+        beak.castShadow = true;
+        character.add(beak);
     }
 
-    // ROBOT QO‘L DETALLARI
-    if (type === 'robot') {
-        sphere(leftArm, 0, -0.25, -0.10, 0.07, 0.07, 0.04, mat.blue);
-        sphere(rightArm, 0, -0.25, -0.10, 0.07, 0.07, 0.04, mat.blue);
+    if (type === 'dinosaur') {
+        // Yumaloq tumshuq va burun teshiklari
+        toonSphere(character, 0, 1.7, -0.44, 0.3, 0.2, 0.22, skin, P.base, [
+            { dir: [0, -1, -0.3], size: 0.5, soft: 0.3, color: P.belly }
+        ]);
+
+        for (const side of sides) {
+            ball(character, side * 0.08, 1.77, -0.655, 0.03, 0.02, 0.015, noseMaterial);
+        }
+
+        smile(0, 1.63, -0.62, 0.12);
+
+        // Bosh ustidagi kichik tikanlar
+        [[2.33, -0.12], [2.34, 0.02], [2.24, 0.16]].forEach(([sy, sz]) => {
+            toonCone(character, 0, sy, sz, 0.06, 0.16, 0.2, 0, 1, P.spike, P.spike);
+        });
     }
 
-    // OYOQLAR
+    // ------------------------------------------
+    // Qo‘llar
+    // ------------------------------------------
+
+    const leftArm = new THREE.Group();
+    const rightArm = new THREE.Group();
+
+    const armSetup = {
+        bear:     { size: [0.15, 0.34, 0.16], spread: 0.2,  patches: [] },
+        fox:      { size: [0.14, 0.33, 0.15], spread: 0.2,  patches: [{ dir: [0, -1, 0], size: 0.45, soft: 0.25, color: P.dark }] },
+        penguin:  { size: [0.07, 0.36, 0.2],  spread: 0.45, patches: [] },
+        dinosaur: { size: [0.12, 0.22, 0.13], spread: 0.25, patches: [] },
+        robot:    { size: [0.13, 0.32, 0.14], spread: 0.15, patches: [] }
+    }[type];
+
+    [[leftArm, -1], [rightArm, 1]].forEach(([group, side]) => {
+        group.position.set(side * 0.5, 1.3, 0);
+        group.rotation.z = side * armSetup.spread;
+        character.add(group);
+
+        const [asx, asy, asz] = armSetup.size;
+
+        toonSphere(group, 0, -asy * 0.75, 0, asx, asy, asz, skin, P.base, armSetup.patches);
+
+        if (type === 'robot') {
+            ball(group, 0, 0, 0, 0.11, 0.11, 0.11, darkMetal);
+            ball(group, 0, -asy * 1.5, 0, 0.12, 0.12, 0.12, darkMetal);
+        }
+    });
+
+    // ------------------------------------------
+    // Oyoqlar
+    // ------------------------------------------
+
     const leftLeg = new THREE.Group();
-    leftLeg.position.set(-0.20, 0.55, 0);
-    character.add(leftLeg);
-
     const rightLeg = new THREE.Group();
-    rightLeg.position.set(0.20, 0.55, 0);
-    character.add(rightLeg);
 
-    const legMaterial = type === 'penguin' ? mat.dark : main;
+    [[leftLeg, -1], [rightLeg, 1]].forEach(([group, side]) => {
+        group.position.set(side * 0.22, 0.66, 0);
+        character.add(group);
 
-    sphere(leftLeg, 0, -0.20, 0, 0.14, 0.31, 0.15, legMaterial);
-    sphere(rightLeg, 0, -0.20, 0, 0.14, 0.31, 0.15, legMaterial);
+        if (type === 'penguin') {
+            // Pingvin oyoqlari: faqat to‘q sariq yassi panjalar
+            ball(group, 0, -0.6, -0.1, 0.22, 0.06, 0.32, glossy(P.beak, 0.4, 0.4));
+            return;
+        }
 
-    // OYOQ PANJALARI
-    const footMaterial =
-        type === 'penguin' || type === 'dinosaur'
-            ? mat.orange
-            : type === 'robot'
-                ? mat.robot
-                : main;
+        const legPatches = type === 'fox'
+            ? [{ dir: [0, -1, 0], size: 0.1, soft: 0.3, color: P.dark }]
+            : [];
 
-    sphere(character, -0.20, 0.14, -0.12,
-        0.17, 0.11, 0.25, footMaterial);
-
-    sphere(character, 0.20, 0.14, -0.12,
-        0.17, 0.11, 0.25, footMaterial);
-
-    // ROBOT OYOQ BO‘G‘IMLARI
-    if (type === 'robot') {
-        sphere(character, -0.20, 0.49, 0, 0.16, 0.13, 0.16, mat.dark);
-        sphere(character, 0.20, 0.49, 0, 0.16, 0.13, 0.16, mat.dark);
-    }
+        if (type === 'robot') {
+            ball(group, 0, -0.2, 0, 0.14, 0.28, 0.15, darkMetal);
+            toonSphere(group, 0, -0.54, -0.1, 0.2, 0.12, 0.3, skin, P.base);
+        } else {
+            toonSphere(group, 0, -0.2, 0, 0.16, 0.28, 0.17, skin, P.base, legPatches);
+            toonSphere(group, 0, -0.54, -0.1, 0.2, 0.12, 0.3, skin, type === 'fox' ? P.dark : P.base);
+        }
+    });
 
     // QAHRAMON JOYLASHUVI
     character.position.set(0, 0, 10);
