@@ -2416,7 +2416,7 @@ window.addEventListener('blur', () => {
 let cameraOrbit = 0;
 let cameraPitch = 0.70;
 
-const cameraDistance = isMobile ? 5.5 : 7.5;
+const cameraDistance = isMobile ? 4.8 : 7.5;
 const playerSpeed = 3.2;
 const turnSpeed = 2.0;
 
